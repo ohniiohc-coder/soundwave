@@ -1,0 +1,25 @@
+[2026-05-21T08:51:38.309+0000] {taskinstance.py:1956} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: music_processing.verify_metadata upload_5e19dd75-3067-49f6-8491-24ca0c5a2fad [queued]>
+[2026-05-21T08:51:38.315+0000] {taskinstance.py:1956} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: music_processing.verify_metadata upload_5e19dd75-3067-49f6-8491-24ca0c5a2fad [queued]>
+[2026-05-21T08:51:38.316+0000] {taskinstance.py:2170} INFO - Starting attempt 1 of 3
+[2026-05-21T08:51:38.323+0000] {taskinstance.py:2191} INFO - Executing <Task(PythonOperator): verify_metadata> on 2026-05-21 08:51:37.222775+00:00
+[2026-05-21T08:51:38.326+0000] {standard_task_runner.py:60} INFO - Started process 80 to run task
+[2026-05-21T08:51:38.329+0000] {standard_task_runner.py:87} INFO - Running: ['airflow', 'tasks', 'run', 'music_processing', 'verify_metadata', 'upload_5e19dd75-3067-49f6-8491-24ca0c5a2fad', '--job-id', '41', '--raw', '--subdir', 'DAGS_FOLDER/music_processing_dag.py', '--cfg-path', '/tmp/tmp15ywrch6']
+[2026-05-21T08:51:38.330+0000] {standard_task_runner.py:88} INFO - Job 41: Subtask verify_metadata
+[2026-05-21T08:51:38.380+0000] {task_command.py:423} INFO - Running <TaskInstance: music_processing.verify_metadata upload_5e19dd75-3067-49f6-8491-24ca0c5a2fad [running]> on host 82f4cab10e47
+[2026-05-21T08:51:38.438+0000] {taskinstance.py:2480} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='music_processing' AIRFLOW_CTX_TASK_ID='verify_metadata' AIRFLOW_CTX_EXECUTION_DATE='2026-05-21T08:51:37.222775+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='upload_5e19dd75-3067-49f6-8491-24ca0c5a2fad'
+[2026-05-21T08:51:38.440+0000] {music_processing_dag.py:72} INFO - Verifying metadata for track 5e19dd75-3067-49f6-8491-24ca0c5a2fad, file tracks/5e19dd75-3067-49f6-8491-24ca0c5a2fad/01 恋をしたのは.mp3
+[2026-05-21T08:51:39.007+0000] {taskinstance.py:2698} ERROR - Task failed with exception
+Traceback (most recent call last):
+  File "/home/airflow/.local/lib/python3.8/site-packages/airflow/models/taskinstance.py", line 433, in _execute_task
+    result = execute_callable(context=context, **execute_callable_kwargs)
+  File "/home/airflow/.local/lib/python3.8/site-packages/airflow/operators/python.py", line 199, in execute
+    return_value = self.execute_callable()
+  File "/home/airflow/.local/lib/python3.8/site-packages/airflow/operators/python.py", line 216, in execute_callable
+    return self.python_callable(*self.op_args, **self.op_kwargs)
+  File "/opt/airflow/dags/music_processing_dag.py", line 83, in task_verify_metadata
+    from mutagen import File as MutagenFile
+ModuleNotFoundError: No module named 'mutagen'
+[2026-05-21T08:51:39.018+0000] {taskinstance.py:1138} INFO - Marking task as UP_FOR_RETRY. dag_id=music_processing, task_id=verify_metadata, execution_date=20260521T085137, start_date=20260521T085138, end_date=20260521T085139
+[2026-05-21T08:51:39.028+0000] {standard_task_runner.py:107} ERROR - Failed to execute job 41 for task verify_metadata (No module named 'mutagen'; 80)
+[2026-05-21T08:51:39.063+0000] {local_task_job_runner.py:234} INFO - Task exited with return code 1
+[2026-05-21T08:51:39.079+0000] {taskinstance.py:3280} INFO - 0 downstream tasks scheduled from follow-on schedule check

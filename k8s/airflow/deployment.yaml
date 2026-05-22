@@ -1,0 +1,257 @@
+# Airflow - Helm Chart 사용 권장
+# helm repo add apache-airflow https://airflow.apache.org
+# helm install airflow apache-airflow/airflow -n music-streaming -f airflow-values.yaml
+#
+# 아래는 최소 구성 예시 (직접 배포 시)
+---
+# Airflow 공통 ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-config
+  namespace: music-streaming
+data:
+  AIRFLOW__CORE__EXECUTOR: "CeleryExecutor"
+  AIRFLOW__CELERY__BROKER_URL: "redis://:@redis:6379/0"
+  S3_BUCKET_MUSIC: "music-streaming-files"
+  S3_BUCKET_IMAGES: "music-streaming-images"
+  S3_REGION: "ap-northeast-2"
+  BACKEND_URL: "http://backend:8000"
+---
+# Redis (Celery 브로커)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: music-streaming
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: music-streaming
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+---
+# Airflow Webserver
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: music-streaming
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-webserver
+  template:
+    metadata:
+      labels:
+        app: airflow-webserver
+    spec:
+      initContainers:
+        - name: db-migrate
+          image: YOUR_ECR_REPO/music-airflow:latest
+          command: ["airflow", "db", "migrate"]
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: DATABASE_URL
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: AIRFLOW_FERNET_KEY
+      containers:
+        - name: webserver
+          image: YOUR_ECR_REPO/music-airflow:latest
+          command: ["airflow", "webserver"]
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: DATABASE_URL
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: AIRFLOW_FERNET_KEY
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: S3_SECRET_KEY
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      volumes:
+        - name: dags
+          configMap:
+            name: airflow-dags  # DAG 파일을 ConfigMap으로 관리
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-webserver
+  namespace: music-streaming
+spec:
+  selector:
+    app: airflow-webserver
+  ports:
+    - port: 8080
+---
+# Airflow Scheduler
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-scheduler
+  namespace: music-streaming
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-scheduler
+  template:
+    metadata:
+      labels:
+        app: airflow-scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: YOUR_ECR_REPO/music-airflow:latest
+          command: ["airflow", "scheduler"]
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: DATABASE_URL
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: AIRFLOW_FERNET_KEY
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+      volumes:
+        - name: dags
+          configMap:
+            name: airflow-dags
+---
+# Airflow Worker
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-worker
+  namespace: music-streaming
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: airflow-worker
+  template:
+    metadata:
+      labels:
+        app: airflow-worker
+    spec:
+      containers:
+        - name: worker
+          image: YOUR_ECR_REPO/music-airflow:latest
+          command: ["airflow", "celery", "worker"]
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: DATABASE_URL
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: AIRFLOW_FERNET_KEY
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: S3_SECRET_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: music-streaming-secrets
+                  key: DATABASE_URL
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: dags
+          configMap:
+            name: airflow-dags

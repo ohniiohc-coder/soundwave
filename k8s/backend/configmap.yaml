@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: music-streaming
+data:
+  STORAGE_TYPE: "s3"
+  S3_BUCKET_MUSIC: "music-streaming-files"
+  S3_BUCKET_IMAGES: "music-streaming-images"
+  S3_REGION: "ap-northeast-2"
+  AIRFLOW_URL: "http://airflow-webserver:8080"
+  AIRFLOW_USER: "admin"
