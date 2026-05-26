@@ -15,7 +15,7 @@ export default function AlbumPage() {
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({ title: "", release_year: "", genre: "", description: "" });
   const [apiKey, setApiKey] = useState("");
-  const { playContext, activeContextId, contextType, jumpToInContext } = usePlayerStore();
+  const { playContext, activeContextId, contextType } = usePlayerStore();
 
   useEffect(() => {
     api.getAlbum(id).then(setAlbum).catch(console.error);
@@ -235,11 +235,6 @@ export default function AlbumPage() {
           <TrackList
             tracks={toPlayerTracks(album.tracks)}
             adminApiKey={apiKey}
-            onPlayTrack={(index) => {
-              const all = toPlayerTracks(album.tracks);
-              if (activeContextId === album.id && contextType === "album") jumpToInContext(index);
-              else playContext("album", album.id, all, index);
-            }}
             onDeleteTrack={(trackId) =>
               setAlbum((prev) =>
                 prev ? { ...prev, tracks: prev.tracks.filter((t) => t.id !== trackId) } : null

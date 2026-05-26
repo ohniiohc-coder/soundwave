@@ -21,7 +21,7 @@ export function Player() {
     currentTrack, isPlaying, volume, progress, duration, isQueueOpen,
     toggle, next, prev, setQueue, pause: pauseStore,
     setVolume, setProgress, setDuration, toggleQueue,
-    queue, contextType, activeContextId, contextTracks,
+    queue, contextType, activeContextId, contextTracks, contextPlayKey,
   } = usePlayerStore();
 
   // ── 앱 시작 시 DB에서 대기열 복원 ──────────────────────────────────────
@@ -73,6 +73,16 @@ export function Player() {
     }
     if (isPlaying) audio.play().catch(() => {});
   }, [track?.id]);
+
+  // 같은 앨범/플레이리스트를 다시 재생하면 처음부터 재시작
+  useEffect(() => {
+    if (contextPlayKey === 0) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    setProgress(0);
+    audio.play().catch(() => {});
+  }, [contextPlayKey]);
 
   useEffect(() => {
     const audio = audioRef.current;

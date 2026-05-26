@@ -29,6 +29,7 @@ cp .env.example .env
 ### 2. 전체 스택 실행
 
 ```bash
+cd C:\Users\soldesk\Desktop\new_prj
 docker-compose up -d
 ```
 
@@ -74,12 +75,45 @@ docker-compose restart backend
 ├── frontend/                  # Next.js 14 앱
 │   └── src/
 │       ├── app/               # 페이지 (App Router)
+│       │   ├── page.tsx       # 홈 (최신 앨범)
+│       │   ├── browse/        # 검색 (트랙·앨범·아티스트)
+│       │   ├── albums/        # 앨범 목록
+│       │   ├── album/[id]/    # 앨범 상세
+│       │   ├── artists/       # 아티스트 목록
+│       │   ├── artist/[id]/   # 아티스트 상세
+│       │   ├── playlists/     # 플레이리스트 목록
+│       │   ├── playlists/[id]/ # 플레이리스트 상세
+│       │   └── upload/        # 음악 업로드 (어드민)
 │       ├── components/        # 공통 컴포넌트
-│       ├── store/             # Zustand 상태 (플레이어)
-│       └── lib/               # API 클라이언트
+│       │   ├── Player.tsx     # 하단 플레이어 바
+│       │   ├── QueuePanel.tsx # 재생 대기열 패널 (노래/플레이리스트 탭)
+│       │   ├── Sidebar.tsx    # 좌측 사이드바
+│       │   ├── TrackList.tsx  # 트랙 목록
+│       │   ├── AlbumCard.tsx  # 앨범 카드
+│       │   ├── ArtistCard.tsx # 아티스트 카드
+│       │   └── AddToPlaylistButton.tsx # 플레이리스트 추가 버튼
+│       ├── store/
+│       │   └── playerStore.ts # Zustand 플레이어 상태
+│       └── lib/
+│           └── api.ts         # API 클라이언트
 ├── backend/                   # FastAPI 백엔드
-│   ├── routers/               # API 라우터
-│   └── utils/                 # 스토리지·메타데이터·인증
+│   ├── main.py
+│   ├── database.py
+│   ├── models.py
+│   ├── schemas.py
+│   ├── routers/
+│   │   ├── tracks.py
+│   │   ├── albums.py
+│   │   ├── artists.py
+│   │   ├── playlists.py
+│   │   ├── queue.py           # 재생 대기열 (DB 영속)
+│   │   ├── recent_contexts.py # 최근 재생 앨범/플레이리스트
+│   │   ├── upload.py
+│   │   └── search.py
+│   └── utils/
+│       ├── metadata.py        # mutagen 태그 추출
+│       ├── storage.py         # S3/MinIO boto3 클라이언트
+│       └── auth.py            # Admin API Key 인증
 ├── airflow/
 │   └── dags/                  # music_processing DAG
 ├── k8s/                       # Kubernetes 매니페스트 (EKS)
@@ -99,7 +133,12 @@ docker-compose restart backend
 
 ### 재생
 - **HTTP Range 스트리밍**: Seek 지원 오디오 스트리밍 (MP3/FLAC/M4A/WAV/OGG)
-- **재생 대기열**: 트랙·앨범 단위로 대기열에 추가, 드래그로 순서 변경, 개별 제거
+- **두 가지 재생 모드**:
+  - **노래 탭 (큐)**: 단일 트랙 클릭 시 재생 대기열에 추가
+  - **플레이리스트 탭 (컨텍스트)**: 앨범·플레이리스트 "전체 재생" 시 컨텍스트로 재생 (큐와 독립)
+- **재생 대기열 영속**: 페이지를 새로고침해도 대기열 유지 (DB에 자동 저장)
+- **같은 앨범/플레이리스트 재생**: 이미 재생 중인 앨범/플레이리스트를 다시 재생하면 처음부터 재시작
+- **재생 대기열 패널**: 드래그로 순서 변경, 개별 트랙 제거
 - **하단 플레이어**: 이전/다음 곡, 재생시간 탐색, 볼륨 조절
 
 ### 편집 (Admin API Key 필요)
@@ -111,7 +150,12 @@ docker-compose restart backend
 - 플레이리스트 생성·이름 변경·삭제
 - 트랙 추가 (트랙 목록 우측 `+` 버튼)
 - 드래그로 순서 변경, 개별 제거
-- 전체 재생
+- 전체 재생 (플레이리스트 탭에서 컨텍스트로 재생)
+
+### 재생 대기열 패널 (하단 플레이어 우측 아이콘)
+- **노래 탭**: 현재 재생 대기열. 드래그 순서 변경, 개별 삭제
+- **플레이리스트 탭**: 현재 재생 중인 앨범 또는 플레이리스트. 드래그 순서 변경, 개별 삭제
+  - 상단 드롭다운: 최근 재생한 앨범·플레이리스트 최대 5개 (앨범 = 디스크 아이콘, 플레이리스트 = 목록 아이콘)
 
 ### 탐색
 - 아티스트·앨범·트랙 통합 검색
@@ -205,7 +249,7 @@ print(Fernet.generate_key().decode())
 | `GET` | `/api/albums` | 앨범 목록 |
 | `GET` | `/api/albums/{id}` | 앨범 상세 (트랙 포함) |
 | `PUT` | `/api/albums/{id}` | 앨범 정보 수정 |
-| `POST` | `/api/albums/{id}/cover` | 앨범 커버 업로드 |
+| `POST` | `/api/albums/{id}/cover` | 앨범 커버 업로드 (`x-api-key` 필요) |
 | `DELETE` | `/api/albums/{id}` | 앨범 삭제 (`x-api-key` 필요, 트랙·S3 포함) |
 
 ### 아티스트
@@ -226,7 +270,20 @@ print(Fernet.generate_key().decode())
 | `PUT` | `/api/playlists/{id}` | 이름 변경 |
 | `DELETE` | `/api/playlists/{id}` | 플레이리스트 삭제 |
 | `POST` | `/api/playlists/{id}/tracks` | 트랙 추가 |
+| `PUT` | `/api/playlists/{id}/tracks/reorder` | 트랙 순서 변경 |
 | `DELETE` | `/api/playlists/{id}/tracks/{track_id}` | 트랙 제거 |
+
+### 재생 대기열
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| `GET` | `/api/queue` | 대기열 조회 (페이지 새로고침 시 복원용) |
+| `PUT` | `/api/queue` | 대기열 저장 (track_ids 배열) |
+
+### 최근 재생
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| `GET` | `/api/recent-contexts` | 최근 재생한 앨범/플레이리스트 최대 5개 |
+| `POST` | `/api/recent-contexts` | 최근 재생 upsert |
 
 ### 검색
 | 메서드 | 경로 | 설명 |

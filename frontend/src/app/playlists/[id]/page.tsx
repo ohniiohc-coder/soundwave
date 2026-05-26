@@ -26,7 +26,7 @@ export default function PlaylistPage() {
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
-  const { playContext, jumpToInContext, activeContextId, contextType, currentTrack, isPlaying, play, pause } = usePlayerStore();
+  const { playContext, addToQueue, currentTrack, isPlaying, play, pause } = usePlayerStore();
   const dragFrom = useRef<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
@@ -163,7 +163,7 @@ export default function PlaylistPage() {
         ) : (
           <div className="divide-y divide-border">
             {playlist.items.map((item, i) => {
-              const isActive = contextType === "playlist" && activeContextId === playlist.id && currentTrack()?.id === item.track.id;
+              const isActive = currentTrack()?.id === item.track.id;
               return (
                 <div
                   key={item.id}
@@ -184,8 +184,7 @@ export default function PlaylistPage() {
                     className="relative w-10 h-10 rounded overflow-hidden bg-bg-elevated flex-shrink-0 cursor-pointer"
                     onClick={() => {
                       if (isActive) { isPlaying ? pause() : play(); }
-                      else if (activeContextId === playlist.id && contextType === "playlist") { jumpToInContext(i); }
-                      else { playContext("playlist", playlist.id, playlist.items.map(toPlayerTrack), i); }
+                      else { addToQueue([toPlayerTrack(item)], 0); }
                     }}
                   >
                     {item.cover_art_url
@@ -206,8 +205,7 @@ export default function PlaylistPage() {
                     className="flex-1 min-w-0 cursor-pointer"
                     onClick={() => {
                       if (isActive) { isPlaying ? pause() : play(); }
-                      else if (activeContextId === playlist.id && contextType === "playlist") { jumpToInContext(i); }
-                      else { playContext("playlist", playlist.id, playlist.items.map(toPlayerTrack), i); }
+                      else { addToQueue([toPlayerTrack(item)], 0); }
                     }}
                   >
                     <p className={clsx("text-sm font-medium truncate", isActive && "text-accent")}>

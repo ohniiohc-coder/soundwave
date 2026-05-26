@@ -27,6 +27,7 @@ type PlayerState = {
   progress: number;
   duration: number;
   isQueueOpen: boolean;
+  contextPlayKey: number;
 
   // ── 액션 ────────────────────────────────────────────────────────────────
   setQueue: (tracks: PlayerTrack[], startIndex?: number) => void;
@@ -69,6 +70,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   progress: 0,
   duration: 0,
   isQueueOpen: false,
+  contextPlayKey: 0,
 
   // 현재 트랙: 컨텍스트 우선
   currentTrack: () => {
@@ -97,15 +99,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   // ── 컨텍스트 재생 (앨범/플레이리스트) ───────────────────────────────────
   playContext: (type, id, tracks, startIndex = 0) => {
-    const update: Partial<PlayerState> = {
+    set((s) => ({
       contextTracks: tracks,
       contextIndex: startIndex,
       contextType: type,
       activeContextId: id,
       isPlaying: true,
       progress: 0,
-    };
-    set(update);
+      contextPlayKey: s.contextPlayKey + 1,
+    }));
   },
 
   jumpToInContext: (index) => {
