@@ -2,6 +2,8 @@
 import { useState, useRef } from "react";
 import { Upload, CheckCircle2, XCircle, Music2, Loader2, Home } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import { useRouter } from "next/navigation";
 
 type UploadStatus = {
   file: string;
@@ -10,18 +12,28 @@ type UploadStatus = {
 };
 
 export default function UploadPage() {
-  const [apiKey, setApiKey] = useState("");
+  const { user } = useAuthStore();
+  const router = useRouter();
   const [statuses, setStatuses] = useState<UploadStatus[]>([]);
   const [dragging, setDragging] = useState(false);
   const [successCount, setSuccessCount] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const uploadFiles = async (files: File[]) => {
-    if (!apiKey.trim()) {
-      alert("Admin API Key를 먼저 입력하세요.");
-      return;
-    }
+  if (!user || user.role !== "admin") {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted">
+        <p className="text-sm">관리자 계정으로 로그인해야 합니다.</p>
+        <button
+          onClick={() => router.push("/login")}
+          className="px-4 py-2 bg-accent rounded-full text-black text-sm font-semibold hover:bg-accent-light transition-colors"
+        >
+          로그인
+        </button>
+      </div>
+    );
+  }
 
+  const uploadFiles = async (files: File[]) => {
     const newStatuses: UploadStatus[] = files.map((f) => ({
       file: f.name,
       status: "uploading",
@@ -32,7 +44,7 @@ export default function UploadPage() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        await api.uploadMusic(file, apiKey);
+        await api.uploadMusic(file);
         newSuccess++;
         setStatuses((prev) =>
           prev.map((s, idx) =>
@@ -48,10 +60,7 @@ export default function UploadPage() {
       }
     }
 
-    if (newSuccess > 0) {
-      setSuccessCount((c) => c + newSuccess);
-      // 라우터 캐시 무효화 → 홈/앨범/아티스트 페이지가 새 데이터를 표시
-    }
+    if (newSuccess > 0) setSuccessCount((c) => c + newSuccess);
   };
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,27 +77,11 @@ export default function UploadPage() {
     if (files.length) uploadFiles(files);
   };
 
-  const goHome = () => {
-    window.location.href = "/";
-  };
-
   return (
     <div className="p-6 md:p-10 max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold">음악 업로드</h1>
         <p className="text-muted text-sm mt-1">MP3, FLAC, M4A, WAV, OGG 형식을 지원합니다.</p>
-      </div>
-
-      {/* API Key 입력 */}
-      <div>
-        <label className="text-sm font-medium mb-2 block">Admin API Key</label>
-        <input
-          type="password"
-          placeholder="API 키 입력"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          className="bg-bg-panel border border-border rounded-lg px-4 py-2.5 text-sm w-full max-w-sm outline-none focus:border-accent transition-colors"
-        />
       </div>
 
       {/* 드래그 앤 드롭 영역 */}
@@ -122,7 +115,7 @@ export default function UploadPage() {
       {/* 업로드 후 홈 이동 버튼 */}
       {successCount > 0 && (
         <button
-          onClick={goHome}
+          onClick={() => router.push("/")}
           className="flex items-center gap-2 px-5 py-2.5 bg-accent rounded-full text-black font-semibold text-sm hover:bg-accent-light transition-colors"
         >
           <Home size={15} />

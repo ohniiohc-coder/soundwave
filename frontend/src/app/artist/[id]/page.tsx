@@ -4,14 +4,16 @@ import Image from "next/image";
 import { useParams } from "next/navigation";
 import { api, ArtistDetail } from "@/lib/api";
 import { AlbumCard } from "@/components/AlbumCard";
+import { useAuthStore } from "@/store/authStore";
 import { Mic2, Pencil, Check, X, Camera, Trash2 } from "lucide-react";
 
 export default function ArtistPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === "admin";
   const [artist, setArtist] = useState<ArtistDetail | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "" });
-  const [apiKey, setApiKey] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -29,43 +31,35 @@ export default function ArtistPage() {
       setArtist((prev) => prev ? { ...prev, ...updated } : null);
       setEditing(false);
     } catch {
-      alert("저장 실패: API 키를 확인하세요");
+      alert("저장 실패");
     }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !artist || !apiKey) {
-      if (!apiKey) alert("먼저 Admin API Key를 입력하세요.");
-      return;
-    }
+    if (!file || !artist) return;
     try {
-      const updated = await api.uploadArtistImage(artist.id, file, apiKey);
+      const updated = await api.uploadArtistImage(artist.id, file);
       setArtist((prev) => prev ? { ...prev, image_url: updated.image_url } : null);
     } catch {
-      alert("이미지 업로드 실패: API 키를 확인하세요.");
+      alert("이미지 업로드 실패");
     }
     e.target.value = "";
   };
 
   const handleDeleteArtist = async () => {
-    if (!artist || !apiKey) return;
+    if (!artist) return;
     const albumCount = artist.albums.length;
-    const trackCount = artist.albums.reduce((sum, a) => sum + ((a as any).tracks?.length || 0), 0);
-
     let msg = `아티스트 "${artist.name}"을 삭제합니다.`;
-    if (albumCount > 0) msg += `\n앨범 ${albumCount}개`;
-    if (trackCount > 0) msg += ` 및 포함된 모든 곡`;
-    msg += albumCount > 0 ? "도 함께 삭제됩니다." : "";
+    if (albumCount > 0) msg += `\n앨범 ${albumCount}개 및 포함된 모든 곡도 함께 삭제됩니다.`;
     msg += "\n\n계속할까요?";
-
     if (!window.confirm(msg)) return;
     setDeleting(true);
     try {
-      await api.deleteArtist(artist.id, apiKey);
+      await api.deleteArtist(artist.id);
       window.location.href = "/artists";
     } catch {
-      alert("삭제 실패: API 키를 확인하세요.");
+      alert("삭제 실패");
       setDeleting(false);
     }
   };
@@ -93,17 +87,19 @@ export default function ArtistPage() {
                 <Mic2 size={48} className="text-muted" />
               </div>
             )}
-            <label className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-              <Camera size={20} className="text-white" />
-              <span className="text-xs text-white">사진 변경</span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-            </label>
+            {isAdmin && (
+              <label className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <Camera size={20} className="text-white" />
+                <span className="text-xs text-white">사진 변경</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              </label>
+            )}
           </div>
 
           {/* 아티스트 정보 */}
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted uppercase tracking-widest mb-2">아티스트</p>
-            {editing ? (
+            {editing && isAdmin ? (
               <div className="space-y-2">
                 <input
                   className="bg-bg-elevated border border-border rounded px-3 py-1.5 text-sm w-full"
@@ -126,8 +122,8 @@ export default function ArtistPage() {
               </>
             )}
 
-            {!editing && (
-              <div className="flex items-center gap-3 mt-4 flex-wrap">
+            {!editing && isAdmin && (
+              <div className="flex items-center gap-3 mt-4">
                 <button
                   onClick={() => setEditing(true)}
                   className="p-2.5 rounded-full bg-bg-elevated hover:bg-bg-hover transition-colors text-muted hover:text-white"
@@ -135,16 +131,9 @@ export default function ArtistPage() {
                 >
                   <Pencil size={16} />
                 </button>
-                <input
-                  type="password"
-                  placeholder="Admin API Key (편집·삭제용)"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="bg-bg-elevated border border-border rounded-full px-4 py-2 text-xs outline-none focus:border-accent transition-colors w-52"
-                />
                 <button
                   onClick={handleDeleteArtist}
-                  disabled={!apiKey || deleting}
+                  disabled={deleting}
                   className="p-2.5 rounded-full bg-bg-elevated hover:bg-red-500/20 transition-colors text-muted hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
                   title="아티스트 삭제"
                 >

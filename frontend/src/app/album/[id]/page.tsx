@@ -5,17 +5,19 @@ import { useParams } from "next/navigation";
 import { api, AlbumDetail, Track } from "@/lib/api";
 import { TrackList } from "@/components/TrackList";
 import { PlayerTrack, usePlayerStore } from "@/store/playerStore";
+import { useAuthStore } from "@/store/authStore";
 import Link from "next/link";
 import { Play, Pencil, Check, X, Music2, Trash2 } from "lucide-react";
 
 export default function AlbumPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === "admin";
   const [album, setAlbum] = useState<AlbumDetail | null>(null);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({ title: "", release_year: "", genre: "", description: "" });
-  const [apiKey, setApiKey] = useState("");
-  const { playContext, activeContextId, contextType } = usePlayerStore();
+  const { playContext } = usePlayerStore();
 
   useEffect(() => {
     api.getAlbum(id).then(setAlbum).catch(console.error);
@@ -55,13 +57,13 @@ export default function AlbumPage() {
       });
       setAlbum((prev) => prev ? { ...prev, ...updated } : null);
       setEditing(false);
-    } catch (e) {
-      alert("저장 실패: API 키를 확인하세요");
+    } catch {
+      alert("저장 실패");
     }
   };
 
   const handleDeleteAlbum = async () => {
-    if (!album || !apiKey) return;
+    if (!album) return;
     const trackCount = album.tracks.length;
     const msg = trackCount > 0
       ? `앨범 "${album.title}"과 포함된 ${trackCount}곡을 모두 삭제합니다. 계속할까요?`
@@ -69,10 +71,10 @@ export default function AlbumPage() {
     if (!window.confirm(msg)) return;
     setDeleting(true);
     try {
-      await api.deleteAlbum(album.id, apiKey);
+      await api.deleteAlbum(album.id);
       window.location.href = "/albums";
     } catch {
-      alert("삭제 실패: API 키를 확인하세요.");
+      alert("삭제 실패");
       setDeleting(false);
     }
   };
@@ -80,16 +82,11 @@ export default function AlbumPage() {
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !album) return;
-    if (!apiKey) {
-      alert("먼저 Admin API Key를 입력하세요.");
-      e.target.value = "";
-      return;
-    }
     try {
-      const updated = await api.uploadAlbumCover(album.id, file, apiKey);
+      const updated = await api.uploadAlbumCover(album.id, file);
       setAlbum((prev) => prev ? { ...prev, cover_art_url: updated.cover_art_url } : null);
     } catch {
-      alert("커버 업로드 실패: API 키를 확인하세요.");
+      alert("커버 업로드 실패");
     }
     e.target.value = "";
   };
@@ -121,17 +118,18 @@ export default function AlbumPage() {
                 <Music2 size={48} className="text-muted" />
               </div>
             )}
-            {/* 커버 교체 버튼 */}
-            <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-              <span className="text-xs text-white">커버 변경</span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-            </label>
+            {isAdmin && (
+              <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <span className="text-xs text-white">커버 변경</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+              </label>
+            )}
           </div>
 
           {/* 앨범 정보 */}
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted uppercase tracking-widest mb-2">앨범</p>
-            {editing ? (
+            {editing && isAdmin ? (
               <div className="space-y-2">
                 <input
                   className="bg-bg-elevated border border-border rounded px-3 py-1.5 text-sm w-full"
@@ -202,28 +200,24 @@ export default function AlbumPage() {
             <Play size={16} fill="black" />
             전체 재생
           </button>
-          <button
-            onClick={() => setEditing(true)}
-            className="p-2.5 rounded-full bg-bg-elevated hover:bg-bg-hover transition-colors text-muted hover:text-white"
-          >
-            <Pencil size={16} />
-          </button>
-          {/* 어드민 키 — 편집·삭제 공용 */}
-          <input
-            type="password"
-            placeholder="Admin API Key (편집·삭제용)"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            className="bg-bg-elevated border border-border rounded-full px-4 py-2 text-xs outline-none focus:border-accent transition-colors w-52"
-          />
-          <button
-            onClick={handleDeleteAlbum}
-            disabled={!apiKey || deleting}
-            className="p-2.5 rounded-full bg-bg-elevated hover:bg-red-500/20 transition-colors text-muted hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="앨범 삭제"
-          >
-            <Trash2 size={16} />
-          </button>
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => setEditing(true)}
+                className="p-2.5 rounded-full bg-bg-elevated hover:bg-bg-hover transition-colors text-muted hover:text-white"
+              >
+                <Pencil size={16} />
+              </button>
+              <button
+                onClick={handleDeleteAlbum}
+                disabled={deleting}
+                className="p-2.5 rounded-full bg-bg-elevated hover:bg-red-500/20 transition-colors text-muted hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="앨범 삭제"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -234,12 +228,10 @@ export default function AlbumPage() {
         ) : (
           <TrackList
             tracks={toPlayerTracks(album.tracks)}
-            adminApiKey={apiKey}
-            onDeleteTrack={(trackId) =>
+            onDeleteTrack={isAdmin ? (trackId) =>
               setAlbum((prev) =>
                 prev ? { ...prev, tracks: prev.tracks.filter((t) => t.id !== trackId) } : null
-              )
-            }
+              ) : undefined}
           />
         )}
       </div>

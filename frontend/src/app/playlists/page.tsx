@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, Playlist } from "@/lib/api";
 import { ListMusic, Plus } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
 
 export default function PlaylistsPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -27,12 +29,14 @@ export default function PlaylistsPage() {
     <div className="p-6 md:p-10">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">플레이리스트</h1>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-accent rounded-full text-black text-sm font-semibold hover:bg-accent-light transition-colors"
-        >
-          <Plus size={15} />새 플레이리스트
-        </button>
+        {user && (
+          <button
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-accent rounded-full text-black text-sm font-semibold hover:bg-accent-light transition-colors"
+          >
+            <Plus size={15} />새 플레이리스트
+          </button>
+        )}
       </div>
 
       {creating && (

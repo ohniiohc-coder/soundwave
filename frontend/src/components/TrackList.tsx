@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Play, Pause, Trash2 } from "lucide-react";
 import { usePlayerStore, PlayerTrack } from "@/store/playerStore";
+import { useAuthStore } from "@/store/authStore";
 import { AddToPlaylistButton } from "@/components/AddToPlaylistButton";
 import clsx from "clsx";
 
@@ -16,9 +17,7 @@ type Props = {
   tracks: PlayerTrack[];
   showAlbum?: boolean;
   showNumber?: boolean;
-  adminApiKey?: string;
   onDeleteTrack?: (trackId: string) => void;
-  /** 제공 시 트랙 클릭을 직접 처리 (앨범 컨텍스트 재생 등) */
   onPlayTrack?: (index: number) => void;
 };
 
@@ -26,13 +25,15 @@ export function TrackList({
   tracks,
   showAlbum = false,
   showNumber = true,
-  adminApiKey,
   onDeleteTrack,
   onPlayTrack,
 }: Props) {
   const { play, pause, isPlaying, currentTrack, addToQueue } = usePlayerStore();
+  const { user } = useAuthStore();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const current = currentTrack();
+
+  const canDelete = user?.role === "admin" && !!onDeleteTrack;
 
   const handlePlay = (index: number) => {
     if (onPlayTrack) { onPlayTrack(index); return; }
@@ -47,21 +48,19 @@ export function TrackList({
 
   const handleDelete = async (e: React.MouseEvent, trackId: string) => {
     e.stopPropagation();
-    if (!adminApiKey) return;
+    if (!canDelete) return;
     if (!window.confirm("이 트랙을 삭제할까요?")) return;
     setDeletingId(trackId);
     try {
       const { api } = await import("@/lib/api");
-      await api.deleteTrack(trackId, adminApiKey);
+      await api.deleteTrack(trackId);
       onDeleteTrack?.(trackId);
     } catch {
-      alert("삭제 실패: API 키를 확인하세요.");
+      alert("삭제 실패");
     } finally {
       setDeletingId(null);
     }
   };
-
-  const canDelete = !!adminApiKey && !!onDeleteTrack;
 
   return (
     <div className="divide-y divide-border">

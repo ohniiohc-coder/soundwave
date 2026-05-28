@@ -5,9 +5,10 @@ from pydantic import BaseModel
 from uuid import UUID
 
 from database import get_db
-from models import Playlist, PlaylistTrack, Track
+from models import Playlist, PlaylistTrack, Track, User
 from schemas import PlaylistDetail, PlaylistTrackOut, TrackOut
 from utils.storage import get_public_url, S3_BUCKET_IMAGES
+from utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/queue", tags=["queue"])
 
@@ -22,11 +23,13 @@ def _enrich_track(t: Track) -> TrackOut:
     return out
 
 
-async def _get_or_create_queue(db: AsyncSession) -> Playlist:
-    result = await db.execute(select(Playlist).where(Playlist.is_default == True))
+async def _get_or_create_queue(db: AsyncSession, user_id: UUID) -> Playlist:
+    result = await db.execute(
+        select(Playlist).where(Playlist.is_default == True, Playlist.user_id == user_id)
+    )
     pl = result.scalar_one_or_none()
     if not pl:
-        pl = Playlist(name="재생 대기열", is_default=True)
+        pl = Playlist(name="재생 대기열", is_default=True, user_id=user_id)
         db.add(pl)
         await db.commit()
         await db.refresh(pl)
@@ -34,8 +37,11 @@ async def _get_or_create_queue(db: AsyncSession) -> Playlist:
 
 
 @router.get("", response_model=PlaylistDetail)
-async def get_queue(db: AsyncSession = Depends(get_db)):
-    pl = await _get_or_create_queue(db)
+async def get_queue(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    pl = await _get_or_create_queue(db, current_user.id)
     out = PlaylistDetail.model_validate(pl)
     out.track_count = len(pl.items)
     items = []
@@ -57,8 +63,12 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
 
 
 @router.put("", status_code=204)
-async def save_queue(data: QueueSave, db: AsyncSession = Depends(get_db)):
-    pl = await _get_or_create_queue(db)
+async def save_queue(
+    data: QueueSave,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    pl = await _get_or_create_queue(db, current_user.id)
 
     existing = await db.execute(
         select(PlaylistTrack).where(PlaylistTrack.playlist_id == pl.id)

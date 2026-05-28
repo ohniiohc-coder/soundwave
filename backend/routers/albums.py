@@ -8,7 +8,7 @@ from database import get_db
 from models import Album, Track
 from schemas import AlbumOut, AlbumCreate, AlbumUpdate, AlbumDetail
 from utils.storage import upload_file, get_public_url, delete_file, S3_BUCKET_IMAGES, S3_BUCKET_MUSIC
-from utils.auth import verify_admin
+from utils.auth import require_admin
 
 router = APIRouter(prefix="/api/albums", tags=["albums"])
 
@@ -66,7 +66,7 @@ async def upload_cover(
     album_id: UUID,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(verify_admin),
+    _: None = Depends(require_admin),
 ):
     result = await db.execute(select(Album).where(Album.id == album_id))
     album = result.scalar_one_or_none()
@@ -88,7 +88,7 @@ async def upload_cover(
 async def delete_album(
     album_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(verify_admin),
+    _: None = Depends(require_admin),
 ):
     result = await db.execute(select(Album).where(Album.id == album_id))
     album = result.scalar_one_or_none()

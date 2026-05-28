@@ -8,6 +8,7 @@ Spotify 스타일 음악 스트리밍 서비스. 음원 업로드 → Airflow �
 |------|------|
 | Frontend | Next.js 14 (App Router), Tailwind CSS, Zustand |
 | Backend | Python FastAPI, SQLAlchemy (async), mutagen |
+| 인증 | JWT (python-jose), bcrypt 4.x (직접 사용) |
 | DB | PostgreSQL 15 |
 | 파이프라인 | Apache Airflow 2.8 (CeleryExecutor + Redis) |
 | 스토리지 (로컬) | MinIO (S3 호환) |
@@ -24,7 +25,9 @@ Spotify 스타일 음악 스트리밍 서비스. 음원 업로드 → Airflow �
 cp .env.example .env
 ```
 
-`.env`의 `ADMIN_API_KEY` 값이 업로드·삭제·편집 시 사용할 어드민 키입니다. 기본값: `change-me-in-production`
+`.env`의 주요 환경 변수:
+- `ADMIN_API_KEY`: 업로드·삭제·편집 시 사용할 어드민 키. 기본값: `change-me-in-production`
+- `JWT_SECRET_KEY`: JWT 서명 키. 기본값: `soundwave-local-dev-secret-key-2026` (프로덕션에서 반드시 변경)
 
 ### 2. 전체 스택 실행
 
@@ -83,19 +86,26 @@ docker-compose restart backend
 │       │   ├── artist/[id]/   # 아티스트 상세
 │       │   ├── playlists/     # 플레이리스트 목록
 │       │   ├── playlists/[id]/ # 플레이리스트 상세
-│       │   └── upload/        # 음악 업로드 (어드민)
+│       │   ├── upload/        # 음악 업로드 (어드민)
+│       │   ├── login/         # 로그인
+│       │   └── register/      # 회원가입
 │       ├── components/        # 공통 컴포넌트
+│       │   ├── TopBar.tsx     # 상단 바 (로고 + 로그인/유저 정보)
 │       │   ├── Player.tsx     # 하단 플레이어 바
 │       │   ├── QueuePanel.tsx # 재생 대기열 패널 (노래/플레이리스트 탭)
+│       │   ├── PlayerSection.tsx # Player + QueuePanel 조건부 렌더 래퍼
+│       │   ├── ContentArea.tsx   # 하단 패딩 조건부 적용 래퍼
+│       │   ├── AuthInit.tsx   # 앱 시작 시 토큰 검증 및 유저 복원
 │       │   ├── Sidebar.tsx    # 좌측 사이드바
 │       │   ├── TrackList.tsx  # 트랙 목록
 │       │   ├── AlbumCard.tsx  # 앨범 카드
 │       │   ├── ArtistCard.tsx # 아티스트 카드
 │       │   └── AddToPlaylistButton.tsx # 플레이리스트 추가 버튼
 │       ├── store/
-│       │   └── playerStore.ts # Zustand 플레이어 상태
+│       │   ├── playerStore.ts # Zustand 플레이어 상태
+│       │   └── authStore.ts   # Zustand 인증 상태
 │       └── lib/
-│           └── api.ts         # API 클라이언트
+│           └── api.ts         # API 클라이언트 (JWT 헤더 자동 포함)
 ├── backend/                   # FastAPI 백엔드
 │   ├── main.py
 │   ├── database.py
@@ -113,7 +123,7 @@ docker-compose restart backend
 │   └── utils/
 │       ├── metadata.py        # mutagen 태그 추출
 │       ├── storage.py         # S3/MinIO boto3 클라이언트
-│       └── auth.py            # Admin API Key 인증
+│       └── auth.py            # JWT 생성·검증, bcrypt 해싱, Admin API Key 인증
 ├── airflow/
 │   └── dags/                  # music_processing DAG
 ├── k8s/                       # Kubernetes 매니페스트 (EKS)
@@ -124,6 +134,16 @@ docker-compose restart backend
 ---
 
 ## 주요 기능
+
+### 인증
+- **회원가입**: 이름(표시명, 중복 허용) + @사용자이름(고유 ID) + 비밀번호 (8자 이상)
+- **로그인**: JWT 발급 (7일 유효), localStorage에 저장
+- **유저 역할**: `user` (일반), `admin` (예정)
+- **로그아웃 시 제한**:
+  - 음악 재생 불가 (재생 시도 시 로그인 페이지로 이동)
+  - 하단 플레이어 바·재생 대기열 패널 미표시
+  - 플레이리스트 생성·수정·삭제 버튼 미표시
+- **토큰 검증**: 페이지 접속 시 `GET /api/auth/me`로 자동 검증 (만료 토큰 자동 로그아웃)
 
 ### 음악 관리
 - **자동 메타데이터 추출**: 업로드 시 MP3/FLAC/M4A 태그(ID3, Vorbis Comment 등) 자동 파싱 — 트랙명, 아티스트, 앨범, 발매연도, 장르
@@ -147,12 +167,15 @@ docker-compose restart backend
 - **트랙**: 개별 삭제 (S3 파일 포함)
 
 ### 플레이리스트
-- 플레이리스트 생성·이름 변경·삭제
+- **유저별 소유**: 각 유저는 자신의 플레이리스트만 조회·편집 가능
+- 플레이리스트 생성·이름 변경·삭제 (로그인 필요)
 - 트랙 추가 (트랙 목록 우측 `+` 버튼)
 - 드래그로 순서 변경, 개별 제거
 - 전체 재생 (플레이리스트 탭에서 컨텍스트로 재생)
 
 ### 재생 대기열 패널 (하단 플레이어 우측 아이콘)
+- 로그인 시에만 표시
+- **유저별 영속**: 재생 대기열과 최근 재생 컨텍스트가 유저별로 분리 저장
 - **노래 탭**: 현재 재생 대기열. 드래그 순서 변경, 개별 삭제
 - **플레이리스트 탭**: 현재 재생 중인 앨범 또는 플레이리스트. 드래그 순서 변경, 개별 삭제
   - 상단 드롭다운: 최근 재생한 앨범·플레이리스트 최대 5개 (앨범 = 디스크 아이콘, 플레이리스트 = 목록 아이콘)
@@ -239,7 +262,7 @@ print(Fernet.generate_key().decode())
 |--------|------|------|
 | `GET` | `/api/tracks` | 트랙 목록 |
 | `GET` | `/api/tracks/{id}` | 트랙 상세 |
-| `GET` | `/api/tracks/{id}/stream` | 오디오 스트리밍 (Range 헤더 지원) |
+| `GET` | `/api/tracks/{id}/stream?token=` | 오디오 스트리밍 (JWT 필수, Range 헤더 지원) |
 | `PUT` | `/api/tracks/{id}` | 트랙 정보 수정 |
 | `DELETE` | `/api/tracks/{id}` | 트랙 삭제 (`x-api-key` 필요, S3 파일 포함) |
 
@@ -261,10 +284,17 @@ print(Fernet.generate_key().decode())
 | `POST` | `/api/artists/{id}/image` | 프로필 이미지 업로드 (`x-api-key` 필요) |
 | `DELETE` | `/api/artists/{id}` | 아티스트 삭제 (`x-api-key` 필요, 앨범·트랙·S3 포함) |
 
-### 플레이리스트
+### 인증
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| `GET` | `/api/playlists` | 플레이리스트 목록 |
+| `POST` | `/api/auth/register` | 회원가입 (display_name, username, password) → JWT 반환 |
+| `POST` | `/api/auth/login` | 로그인 (username, password) → JWT 반환 |
+| `GET` | `/api/auth/me` | 현재 로그인 유저 정보 (`Authorization: Bearer` 필요) |
+
+### 플레이리스트 (JWT 필수 — 본인 소유만 접근 가능)
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| `GET` | `/api/playlists` | 내 플레이리스트 목록 |
 | `POST` | `/api/playlists` | 플레이리스트 생성 |
 | `GET` | `/api/playlists/{id}` | 플레이리스트 상세 (트랙 포함) |
 | `PUT` | `/api/playlists/{id}` | 이름 변경 |
@@ -273,16 +303,16 @@ print(Fernet.generate_key().decode())
 | `PUT` | `/api/playlists/{id}/tracks/reorder` | 트랙 순서 변경 |
 | `DELETE` | `/api/playlists/{id}/tracks/{track_id}` | 트랙 제거 |
 
-### 재생 대기열
+### 재생 대기열 (JWT 필수 — 유저별 독립)
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| `GET` | `/api/queue` | 대기열 조회 (페이지 새로고침 시 복원용) |
-| `PUT` | `/api/queue` | 대기열 저장 (track_ids 배열) |
+| `GET` | `/api/queue` | 내 대기열 조회 (페이지 새로고침 시 복원용) |
+| `PUT` | `/api/queue` | 내 대기열 저장 (track_ids 배열) |
 
-### 최근 재생
+### 최근 재생 (JWT 필수 — 유저별 독립)
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| `GET` | `/api/recent-contexts` | 최근 재생한 앨범/플레이리스트 최대 5개 |
+| `GET` | `/api/recent-contexts` | 내 최근 재생 앨범/플레이리스트 최대 5개 |
 | `POST` | `/api/recent-contexts` | 최근 재생 upsert |
 
 ### 검색

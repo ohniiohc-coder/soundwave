@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { usePlayerStore, PlayerTrack } from "@/store/playerStore";
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music2, ListMusic } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 
 function formatTime(secs: number): string {
   if (!secs || isNaN(secs)) return "0:00";
@@ -16,6 +18,9 @@ export function Player() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipSave = useRef(true); // 초기 로드 중엔 저장 건너뜀
+
+  const router = useRouter();
+  const { user, initialized } = useAuthStore();
 
   const {
     currentTrack, isPlaying, volume, progress, duration, isQueueOpen,
@@ -40,6 +45,15 @@ export function Player() {
     }).catch(() => { skipSave.current = false; });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── 로그인 상태 확인 — 미로그인 시 재생 차단 ──────────────────────────
+  useEffect(() => {
+    if (!initialized) return;
+    if (isPlaying && !user) {
+      pauseStore();
+      router.push("/login");
+    }
+  }, [isPlaying, user, initialized]);
 
   // ── 컨텍스트(앨범/플레이리스트) 변경 시 DB에 최근 재생 저장 ────────────
   useEffect(() => {

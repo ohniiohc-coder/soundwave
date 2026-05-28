@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Home, Disc3, Mic2, Search, Upload, Music2, ListMusic, Plus } from "lucide-react";
+import { Home, Disc3, Mic2, Search, Upload, ListMusic, Plus } from "lucide-react";
 import clsx from "clsx";
 import { api, Playlist } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 
 const navItems = [
   { href: "/", label: "홈", icon: Home },
@@ -16,9 +17,11 @@ const navItems = [
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuthStore();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+
 
   useEffect(() => {
     api.getPlaylists().then(setPlaylists).catch(() => {});
@@ -43,11 +46,6 @@ export function Sidebar() {
       className="hidden md:flex flex-col bg-bg-panel border-r border-border"
       style={{ width: "var(--sidebar-width)", minWidth: "var(--sidebar-width)" }}
     >
-      <div className="flex items-center gap-2 px-6 py-5 border-b border-border">
-        <Music2 size={22} className="text-accent" />
-        <span className="text-lg font-semibold tracking-tight">Soundwave</span>
-      </div>
-
       <div className="flex-1 overflow-y-auto">
         <nav className="px-3 py-4 space-y-1">
           {/* 기본 메뉴 */}
@@ -82,13 +80,15 @@ export function Sidebar() {
                 <ListMusic size={18} />
                 플레이리스트
               </button>
-              <button
-                onClick={() => { setCreating(true); setNewName(""); }}
-                className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-bg-hover transition-colors flex-shrink-0"
-                title="새 플레이리스트"
-              >
-                <Plus size={15} />
-              </button>
+              {user && (
+                <button
+                  onClick={() => { setCreating(true); setNewName(""); }}
+                  className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-bg-hover transition-colors flex-shrink-0"
+                  title="새 플레이리스트"
+                >
+                  <Plus size={15} />
+                </button>
+              )}
             </div>
 
             {/* 새 플레이리스트 입력 */}

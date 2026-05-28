@@ -158,6 +158,34 @@ class PlaylistAddTrack(BaseModel):
     track_id: UUID
 
 
+# ─── Auth / User ──────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    display_name: str
+    username: str
+    password: str
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    display_name: str
+    username: str
+    role: str
+    created_at: datetime
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
 # resolve forward refs
 ArtistDetail.model_rebuild()
 AlbumDetail.model_rebuild()

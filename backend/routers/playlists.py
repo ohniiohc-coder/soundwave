@@ -5,12 +5,13 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from database import get_db
-from models import Playlist, PlaylistTrack, Track
+from models import Playlist, PlaylistTrack, Track, User
 from schemas import (
     PlaylistOut, PlaylistDetail, PlaylistCreate, PlaylistUpdate,
     PlaylistAddTrack, PlaylistTrackOut, TrackOut,
 )
 from utils.storage import get_public_url, S3_BUCKET_IMAGES
+from utils.auth import get_current_user
 
 
 class ReorderRequest(BaseModel):
@@ -49,17 +50,37 @@ def _build_items(pl: Playlist) -> list[PlaylistTrackOut]:
     return result
 
 
+async def _get_owned_playlist(playlist_id: UUID, current_user: User, db: AsyncSession) -> Playlist:
+    result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
+    pl = result.scalar_one_or_none()
+    if not pl:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if pl.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="접근 권한이 없습니다")
+    return pl
+
+
 @router.get("", response_model=list[PlaylistOut])
-async def list_playlists(db: AsyncSession = Depends(get_db)):
+async def list_playlists(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
-        select(Playlist).where(Playlist.is_default == False).order_by(Playlist.created_at.desc())
+        select(Playlist).where(
+            Playlist.is_default == False,
+            Playlist.user_id == current_user.id,
+        ).order_by(Playlist.created_at.desc())
     )
     return [_playlist_out(p) for p in result.scalars().all()]
 
 
 @router.post("", response_model=PlaylistOut, status_code=status.HTTP_201_CREATED)
-async def create_playlist(data: PlaylistCreate, db: AsyncSession = Depends(get_db)):
-    pl = Playlist(name=data.name)
+async def create_playlist(
+    data: PlaylistCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    pl = Playlist(name=data.name, user_id=current_user.id)
     db.add(pl)
     await db.commit()
     await db.refresh(pl)
@@ -67,11 +88,12 @@ async def create_playlist(data: PlaylistCreate, db: AsyncSession = Depends(get_d
 
 
 @router.get("/{playlist_id}", response_model=PlaylistDetail)
-async def get_playlist(playlist_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
-    pl = result.scalar_one_or_none()
-    if not pl:
-        raise HTTPException(status_code=404, detail="Playlist not found")
+async def get_playlist(
+    playlist_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    pl = await _get_owned_playlist(playlist_id, current_user, db)
     out = PlaylistDetail.model_validate(pl)
     out.track_count = len(pl.items)
     out.items = _build_items(pl)
@@ -79,11 +101,13 @@ async def get_playlist(playlist_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{playlist_id}", response_model=PlaylistOut)
-async def update_playlist(playlist_id: UUID, data: PlaylistUpdate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
-    pl = result.scalar_one_or_none()
-    if not pl:
-        raise HTTPException(status_code=404, detail="Playlist not found")
+async def update_playlist(
+    playlist_id: UUID,
+    data: PlaylistUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    pl = await _get_owned_playlist(playlist_id, current_user, db)
     pl.name = data.name
     await db.commit()
     await db.refresh(pl)
@@ -91,22 +115,27 @@ async def update_playlist(playlist_id: UUID, data: PlaylistUpdate, db: AsyncSess
 
 
 @router.delete("/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_playlist(playlist_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
-    pl = result.scalar_one_or_none()
-    if not pl or pl.is_default:
-        raise HTTPException(status_code=404, detail="Playlist not found")
+async def delete_playlist(
+    playlist_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    pl = await _get_owned_playlist(playlist_id, current_user, db)
+    if pl.is_default:
+        raise HTTPException(status_code=400, detail="기본 재생 대기열은 삭제할 수 없습니다")
     await db.delete(pl)
     await db.execute(text("DELETE FROM recent_contexts WHERE context_id = :id"), {"id": str(playlist_id)})
     await db.commit()
 
 
 @router.post("/{playlist_id}/tracks", response_model=PlaylistOut, status_code=status.HTTP_201_CREATED)
-async def add_track(playlist_id: UUID, data: PlaylistAddTrack, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
-    pl = result.scalar_one_or_none()
-    if not pl:
-        raise HTTPException(status_code=404, detail="Playlist not found")
+async def add_track(
+    playlist_id: UUID,
+    data: PlaylistAddTrack,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    pl = await _get_owned_playlist(playlist_id, current_user, db)
 
     t_res = await db.execute(select(Track).where(Track.id == data.track_id))
     if not t_res.scalar_one_or_none():
@@ -124,13 +153,14 @@ async def add_track(playlist_id: UUID, data: PlaylistAddTrack, db: AsyncSession 
 
 
 @router.put("/{playlist_id}/tracks/reorder", status_code=status.HTTP_204_NO_CONTENT)
-async def reorder_tracks(playlist_id: UUID, data: ReorderRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
-    pl = result.scalar_one_or_none()
-    if not pl:
-        raise HTTPException(status_code=404, detail="Playlist not found")
+async def reorder_tracks(
+    playlist_id: UUID,
+    data: ReorderRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_playlist(playlist_id, current_user, db)
 
-    # track_ids 순서대로 position 업데이트
     for pos, track_id in enumerate(data.track_ids):
         item_result = await db.execute(select(PlaylistTrack).where(
             PlaylistTrack.playlist_id == playlist_id,
@@ -143,7 +173,14 @@ async def reorder_tracks(playlist_id: UUID, data: ReorderRequest, db: AsyncSessi
 
 
 @router.delete("/{playlist_id}/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_track(playlist_id: UUID, track_id: UUID, db: AsyncSession = Depends(get_db)):
+async def remove_track(
+    playlist_id: UUID,
+    track_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_playlist(playlist_id, current_user, db)
+
     result = await db.execute(select(PlaylistTrack).where(
         PlaylistTrack.playlist_id == playlist_id,
         PlaylistTrack.track_id == track_id,

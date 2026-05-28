@@ -2,24 +2,64 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from sqlalchemy import select
-from database import init_db, AsyncSessionLocal
-from models import Playlist
-from routers import artists, albums, tracks, upload, search, queue, playlists, recent_contexts
+from sqlalchemy import text
+from database import init_db, engine
+from routers import artists, albums, tracks, upload, search, queue, playlists, recent_contexts, auth
 
 
-async def ensure_default_queue():
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(Playlist).where(Playlist.is_default == True))
-        if not result.scalar_one_or_none():
-            db.add(Playlist(name="재생 대기열", is_default=True))
-            await db.commit()
+async def migrate_users_table():
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100) NOT NULL DEFAULT ''"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users DROP COLUMN IF EXISTS email"
+        ))
+
+
+async def migrate_user_scoped_data():
+    async with engine.begin() as conn:
+        # playlists에 user_id 컬럼 추가
+        await conn.execute(text(
+            "ALTER TABLE playlists ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE"
+        ))
+        # recent_contexts에 user_id 컬럼 추가
+        await conn.execute(text(
+            "ALTER TABLE recent_contexts ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE"
+        ))
+        # recent_contexts unique constraint를 (context_id, user_id) 복합키로 변경
+        await conn.execute(text(
+            "ALTER TABLE recent_contexts DROP CONSTRAINT IF EXISTS recent_contexts_pkey"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE recent_contexts ADD COLUMN IF NOT EXISTS rc_id SERIAL"
+        ))
+        await conn.execute(text(
+            "DO $$ BEGIN "
+            "  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'recent_contexts_context_id_user_id_key') THEN "
+            "    ALTER TABLE recent_contexts ADD CONSTRAINT recent_contexts_context_id_user_id_key UNIQUE (context_id, user_id); "
+            "  END IF; "
+            "END $$"
+        ))
+        # 기존 데이터를 i_2000n 유저에 배정
+        result = await conn.execute(text("SELECT id FROM users WHERE username = 'i_2000n'"))
+        inho = result.fetchone()
+        if inho:
+            await conn.execute(
+                text("UPDATE playlists SET user_id = :uid WHERE user_id IS NULL"),
+                {"uid": str(inho[0])},
+            )
+            await conn.execute(
+                text("UPDATE recent_contexts SET user_id = :uid WHERE user_id IS NULL"),
+                {"uid": str(inho[0])},
+            )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    await ensure_default_queue()
+    await migrate_users_table()
+    await migrate_user_scoped_data()
     yield
 
 
@@ -41,6 +81,7 @@ app.include_router(search.router)
 app.include_router(queue.router)
 app.include_router(playlists.router)
 app.include_router(recent_contexts.router)
+app.include_router(auth.router)
 
 
 @app.get("/health")

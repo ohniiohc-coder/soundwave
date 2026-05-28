@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -13,7 +13,7 @@ from utils.storage import (
     get_public_url, get_s3_client, delete_file,
     S3_BUCKET_MUSIC, S3_BUCKET_IMAGES,
 )
-from utils.auth import verify_admin
+from utils.auth import require_admin, decode_token
 
 router = APIRouter(prefix="/api/tracks", tags=["tracks"])
 
@@ -44,7 +44,16 @@ async def get_track(track_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{track_id}/stream")
-async def stream_track(track_id: UUID, request: Request, db: AsyncSession = Depends(get_db)):
+async def stream_track(
+    track_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    token: str | None = Query(default=None),
+):
+    if not token:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    decode_token(token)  # 유효하지 않으면 401 raise
+
     result = await db.execute(select(Track).where(Track.id == track_id))
     track = result.scalar_one_or_none()
     if not track:
@@ -105,7 +114,7 @@ async def update_track(track_id: UUID, data: TrackUpdate, db: AsyncSession = Dep
 async def delete_track(
     track_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(verify_admin),
+    _: None = Depends(require_admin),
 ):
     result = await db.execute(select(Track).where(Track.id == track_id))
     track = result.scalar_one_or_none()

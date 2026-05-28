@@ -50,6 +50,20 @@ export type ArtistDetail = Artist & {
   albums: Album[];
 };
 
+export type AuthUser = {
+  id: string;
+  display_name: string;
+  username: string;
+  role: string;
+  created_at: string;
+};
+
+export type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+};
+
 export type SearchResult = {
   tracks: Track[];
   albums: Album[];
@@ -81,8 +95,18 @@ export type PlaylistDetail = Playlist & {
 };
 
 
+function getAuthHeader(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("auth_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, options);
+  const headers = {
+    ...getAuthHeader(),
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
   if (res.status === 204 || res.headers.get("content-length") === "0") {
     return undefined as T;
@@ -101,12 +125,11 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }),
-  uploadAlbumCover: (id: string, file: File, apiKey: string) => {
+  uploadAlbumCover: (id: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
     return apiFetch<Album>(`/api/albums/${id}/cover`, {
       method: "POST",
-      headers: { "x-api-key": apiKey },
       body: form,
     });
   },
@@ -121,17 +144,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }),
-  deleteArtist: (id: string, apiKey: string) =>
-    apiFetch<void>(`/api/artists/${id}`, {
-      method: "DELETE",
-      headers: { "x-api-key": apiKey },
-    }),
-  uploadArtistImage: (id: string, file: File, apiKey: string) => {
+  deleteArtist: (id: string) =>
+    apiFetch<void>(`/api/artists/${id}`, { method: "DELETE" }),
+  uploadArtistImage: (id: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
     return apiFetch<Artist>(`/api/artists/${id}/image`, {
       method: "POST",
-      headers: { "x-api-key": apiKey },
       body: form,
     });
   },
@@ -146,24 +165,17 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }),
-  deleteTrack: (id: string, apiKey: string) =>
-    apiFetch<void>(`/api/tracks/${id}`, {
-      method: "DELETE",
-      headers: { "x-api-key": apiKey },
-    }),
-  deleteAlbum: (id: string, apiKey: string) =>
-    apiFetch<void>(`/api/albums/${id}`, {
-      method: "DELETE",
-      headers: { "x-api-key": apiKey },
-    }),
+  deleteTrack: (id: string) =>
+    apiFetch<void>(`/api/tracks/${id}`, { method: "DELETE" }),
+  deleteAlbum: (id: string) =>
+    apiFetch<void>(`/api/albums/${id}`, { method: "DELETE" }),
 
   // Upload
-  uploadMusic: (file: File, apiKey: string) => {
+  uploadMusic: (file: File) => {
     const form = new FormData();
     form.append("file", file);
     return apiFetch<{ track_id: string; message: string }>("/api/upload", {
       method: "POST",
-      headers: { "x-api-key": apiKey },
       body: form,
     });
   },
@@ -171,8 +183,12 @@ export const api = {
   // Search
   search: (q: string) => apiFetch<SearchResult>(`/api/search?q=${encodeURIComponent(q)}`),
 
-  // Stream URL helper
-  streamUrl: (trackId: string) => `${BASE}/api/tracks/${trackId}/stream`,
+  // Stream URL helper — JWT를 쿼리 파라미터로 포함 (audio 엘리먼트는 헤더 설정 불가)
+  streamUrl: (trackId: string) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    const q = token ? `?token=${encodeURIComponent(token)}` : "";
+    return `${BASE}/api/tracks/${trackId}/stream${q}`;
+  },
 
   // 플레이리스트
   getPlaylists: () => apiFetch<Playlist[]>("/api/playlists"),
@@ -223,4 +239,19 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ track_ids: trackIds }),
     }),
+
+  // 인증
+  register: (display_name: string, username: string, password: string) =>
+    apiFetch<TokenResponse>("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ display_name, username, password }),
+    }),
+  login: (username: string, password: string) =>
+    apiFetch<TokenResponse>("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    }),
+  getMe: () => apiFetch<AuthUser>("/api/auth/me"),
 };

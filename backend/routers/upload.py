@@ -9,7 +9,7 @@ from models import Track, Artist, Album
 from schemas import UploadResponse
 from utils.storage import upload_file, S3_BUCKET_MUSIC, S3_BUCKET_IMAGES
 from utils.metadata import extract_metadata
-from utils.auth import verify_admin
+from utils.auth import require_admin
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
@@ -24,7 +24,7 @@ ALLOWED_FORMATS = {"mp3", "flac", "m4a", "aac", "wav", "ogg"}
 async def upload_music(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(verify_admin),
+    _: None = Depends(require_admin),
 ):
     filename = file.filename or "unknown"
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
