@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy import text
 from database import init_db, engine
-from routers import artists, albums, tracks, upload, search, queue, playlists, recent_contexts, auth
+from routers import artists, albums, tracks, upload, search, queue, playlists, recent_contexts, auth, users, messages
 
 
 async def migrate_users_table():
@@ -15,6 +15,44 @@ async def migrate_users_table():
         await conn.execute(text(
             "ALTER TABLE users DROP COLUMN IF EXISTS email"
         ))
+
+
+async def migrate_user_bio():
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS follows (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                follower_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                following_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                UNIQUE (follower_id, following_id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS follow_requests (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                target_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                UNIQUE (requester_id, target_id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS direct_messages (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                read_at TIMESTAMP
+            )
+        """))
 
 
 async def migrate_user_scoped_data():
@@ -59,6 +97,7 @@ async def migrate_user_scoped_data():
 async def lifespan(app: FastAPI):
     await init_db()
     await migrate_users_table()
+    await migrate_user_bio()
     await migrate_user_scoped_data()
     yield
 
@@ -82,6 +121,8 @@ app.include_router(queue.router)
 app.include_router(playlists.router)
 app.include_router(recent_contexts.router)
 app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(messages.router)
 
 
 @app.get("/health")

@@ -171,13 +171,57 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserUpdate(BaseModel):
+    display_name: str | None = None
+    bio: str | None = None
+    is_private: bool | None = None
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     display_name: str
     username: str
     role: str
+    bio: str | None = None
+    is_private: bool = False
     created_at: datetime
+
+
+class UserPublicOut(BaseModel):
+    id: UUID
+    display_name: str
+    username: str
+    bio: str | None = None
+    is_private: bool = False
+    follower_count: int = 0
+    following_count: int = 0
+    is_following: bool = False
+    has_pending_request: bool = False
+
+
+class FollowRequestOut(BaseModel):
+    id: UUID
+    requester: UserPublicOut
+    created_at: datetime
+
+
+class DirectMessageCreate(BaseModel):
+    content: str
+
+
+class DirectMessageOut(BaseModel):
+    id: UUID
+    sender_id: UUID
+    content: str
+    created_at: datetime
+    read_at: datetime | None = None
+
+
+class ConversationOut(BaseModel):
+    user: UserPublicOut
+    last_message: DirectMessageOut | None = None
+    unread_count: int = 0
 
 
 class TokenOut(BaseModel):

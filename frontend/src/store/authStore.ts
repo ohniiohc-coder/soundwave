@@ -6,6 +6,8 @@ export type AuthUser = {
   display_name: string;
   username: string;
   role: string;
+  bio: string | null;
+  is_private: boolean;
   created_at: string;
 };
 
@@ -14,6 +16,7 @@ type AuthState = {
   token: string | null;
   initialized: boolean;
   setAuth: (user: AuthUser, token: string) => void;
+  setUser: (user: AuthUser) => void;
   logout: () => void;
   setInitialized: () => void;
 };
@@ -29,6 +32,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
     set({ user, token });
   },
+
+  setUser: (user) => set({ user }),
 
   logout: () => {
     if (typeof window !== "undefined") {

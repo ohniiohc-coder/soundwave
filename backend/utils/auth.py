@@ -39,6 +39,22 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="유효하지 않거나 만료된 토큰입니다")
 
 
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        from models import User
+        result = await db.execute(select(User).where(User.id == payload["sub"]))
+        user = result.scalar_one_or_none()
+        return user if user and user.is_active else None
+    except Exception:
+        return None
+
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),

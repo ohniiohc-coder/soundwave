@@ -134,8 +134,8 @@ export function Player() {
         onEnded={next}
       />
       <div
-        className="fixed bottom-0 left-0 right-0 bg-bg-panel border-t border-border flex items-center px-4 gap-4 z-50"
-        style={{ height: "var(--player-height)" }}
+        className="fixed bottom-0 left-0 right-0 border-t border-border flex items-center px-4 gap-4 z-50 backdrop-blur-xl"
+        style={{ height: "var(--player-height)", background: "rgba(10,10,10,0.85)" }}
       >
         {/* 트랙 정보 */}
         <div className="flex items-center gap-3 w-64 min-w-0">
@@ -180,7 +180,7 @@ export function Player() {
               onChange={onSeek}
               className="flex-1"
               style={{
-                background: `linear-gradient(to right, #c9a96e ${progressPct}%, #2a2a2a ${progressPct}%)`,
+                background: `linear-gradient(to right, #c8ff00 ${progressPct}%, rgba(255,255,255,0.08) ${progressPct}%)`,
               }}
             />
             <span className="text-xs text-muted w-10">{formatTime(duration)}</span>
@@ -211,7 +211,7 @@ export function Player() {
             onChange={(e) => setVolume(parseFloat(e.target.value))}
             className="w-24"
             style={{
-              background: `linear-gradient(to right, #c9a96e ${volume * 100}%, #2a2a2a ${volume * 100}%)`,
+              background: `linear-gradient(to right, #c8ff00 ${volume * 100}%, rgba(255,255,255,0.08) ${volume * 100}%)`,
             }}
           />
         </div>

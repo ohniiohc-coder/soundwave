@@ -4,10 +4,16 @@ from sqlalchemy import select, or_
 
 from database import get_db
 from models import User
-from schemas import UserCreate, UserLogin, UserOut, TokenOut
+from schemas import UserCreate, UserLogin, UserOut, UserUpdate, TokenOut
 from utils.auth import hash_password, verify_password, create_access_token, get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+@router.get("/check-username")
+async def check_username(username: str, db: AsyncSession = Depends(get_db)):
+    dup = (await db.execute(select(User).where(User.username == username))).scalar_one_or_none()
+    return {"available": dup is None}
 
 
 @router.post("/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
@@ -51,4 +57,23 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 async def me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.put("/me", response_model=UserOut)
+async def update_me(
+    data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if data.display_name is not None:
+        stripped = data.display_name.strip()
+        if stripped:
+            current_user.display_name = stripped
+    if data.bio is not None:
+        current_user.bio = data.bio or None
+    if data.is_private is not None:
+        current_user.is_private = data.is_private
+    await db.commit()
+    await db.refresh(current_user)
     return current_user

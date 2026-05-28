@@ -55,7 +55,41 @@ export type AuthUser = {
   display_name: string;
   username: string;
   role: string;
+  bio: string | null;
+  is_private: boolean;
   created_at: string;
+};
+
+export type PublicUser = {
+  id: string;
+  display_name: string;
+  username: string;
+  bio: string | null;
+  is_private: boolean;
+  follower_count: number;
+  following_count: number;
+  is_following: boolean;
+  has_pending_request: boolean;
+};
+
+export type FollowRequest = {
+  id: string;
+  requester: PublicUser;
+  created_at: string;
+};
+
+export type DirectMessage = {
+  id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  read_at: string | null;
+};
+
+export type Conversation = {
+  user: PublicUser;
+  last_message: DirectMessage | null;
+  unread_count: number;
 };
 
 export type TokenResponse = {
@@ -241,6 +275,8 @@ export const api = {
     }),
 
   // 인증
+  checkUsername: (username: string) =>
+    apiFetch<{ available: boolean }>(`/api/auth/check-username?username=${encodeURIComponent(username)}`),
   register: (display_name: string, username: string, password: string) =>
     apiFetch<TokenResponse>("/api/auth/register", {
       method: "POST",
@@ -254,4 +290,48 @@ export const api = {
       body: JSON.stringify({ username, password }),
     }),
   getMe: () => apiFetch<AuthUser>("/api/auth/me"),
+  updateProfile: (data: { display_name?: string; bio?: string; is_private?: boolean }) =>
+    apiFetch<AuthUser>("/api/auth/me", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }),
+
+  // 유저
+  searchUsers: (q: string) =>
+    apiFetch<PublicUser[]>(`/api/users?q=${encodeURIComponent(q)}`),
+  getPublicUser: (userId: string) =>
+    apiFetch<PublicUser>(`/api/users/${userId}`),
+  followUser: (userId: string) =>
+    apiFetch<void>(`/api/users/${userId}/follow`, { method: "POST" }),
+  unfollowUser: (userId: string) =>
+    apiFetch<void>(`/api/users/${userId}/follow`, { method: "DELETE" }),
+  getFollowers: (userId: string) =>
+    apiFetch<PublicUser[]>(`/api/users/${userId}/followers`),
+  getFollowing: (userId: string) =>
+    apiFetch<PublicUser[]>(`/api/users/${userId}/following`),
+  getUserPlaylists: (userId: string) =>
+    apiFetch<Playlist[]>(`/api/users/${userId}/playlists`),
+
+  // DM
+  getConversations: () =>
+    apiFetch<Conversation[]>("/api/messages"),
+  getMessages: (userId: string) =>
+    apiFetch<DirectMessage[]>(`/api/messages/${userId}`),
+  sendMessage: (userId: string, content: string) =>
+    apiFetch<DirectMessage>(`/api/messages/${userId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    }),
+  getUnreadCount: () =>
+    apiFetch<{ count: number }>("/api/messages/unread"),
+
+  // 팔로우 요청 관리 (수신자 기준)
+  getFollowRequests: () =>
+    apiFetch<FollowRequest[]>("/api/users/me/requests"),
+  acceptFollowRequest: (requestId: string) =>
+    apiFetch<void>(`/api/users/me/requests/${requestId}/accept`, { method: "POST" }),
+  rejectFollowRequest: (requestId: string) =>
+    apiFetch<void>(`/api/users/me/requests/${requestId}`, { method: "DELETE" }),
 };

@@ -28,7 +28,6 @@ export function AlbumCard({ album }: Props) {
       }));
       playContext("album", detail.id, tracks, 0);
     } catch {
-      // 실패 시 앨범 페이지로 이동
       window.location.href = `/album/${album.id}`;
     } finally {
       setLoading(false);
@@ -36,28 +35,28 @@ export function AlbumCard({ album }: Props) {
   };
 
   return (
-    <Link
-      href={`/album/${album.id}`}
-      className="group flex flex-col gap-3 p-3 rounded-xl bg-bg-panel hover:bg-bg-elevated transition-colors cursor-pointer"
-    >
-      <div className="relative aspect-square rounded-lg overflow-hidden bg-bg-elevated">
+    <Link href={`/album/${album.id}`} className="group block cursor-pointer">
+      {/* 커버 */}
+      <div className="relative aspect-square rounded-[10px] overflow-hidden bg-bg-elevated mb-2.5">
         {album.cover_art_url ? (
           <Image
             src={album.cover_art_url}
             alt={album.title}
             fill
-            className="object-cover"
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.05]"
             sizes="(max-width: 768px) 50vw, 200px"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Music2 size={40} className="text-muted" />
+          <div className="w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.05]">
+            <Music2 size={40} style={{ color: "rgba(255,255,255,0.06)" }} />
           </div>
         )}
-        <div className="absolute inset-0 flex items-end justify-end p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* 호버 오버레이 */}
+        <div className="absolute inset-0 bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <button
             onClick={handlePlay}
-            className="w-10 h-10 rounded-full bg-accent shadow-lg flex items-center justify-center translate-y-2 group-hover:translate-y-0 transition-transform hover:bg-accent-light"
+            className="w-11 h-11 rounded-full bg-accent flex items-center justify-center scale-75 group-hover:scale-100 transition-transform duration-200"
+            style={{ boxShadow: "0 4px 20px rgba(200,255,0,0.3)" }}
           >
             {loading
               ? <Loader2 size={16} className="text-black animate-spin" />
@@ -66,13 +65,13 @@ export function AlbumCard({ album }: Props) {
           </button>
         </div>
       </div>
-      <div>
-        <p className="text-sm font-medium line-clamp-1">{album.title}</p>
-        <p className="text-xs text-muted mt-0.5 line-clamp-1">
-          {album.release_year ?? "연도 미상"}
-          {album.genre ? ` · ${album.genre}` : ""}
-        </p>
-      </div>
+      <p className="text-[13px] font-medium truncate mb-0.5" style={{ color: "rgba(255,255,255,0.9)" }}>
+        {album.title}
+      </p>
+      <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
+        {album.release_year ?? "연도 미상"}
+        {album.genre ? ` · ${album.genre}` : ""}
+      </p>
     </Link>
   );
 }

@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Music2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 
@@ -34,9 +33,13 @@ export default function LoginPage() {
     <div className="min-h-screen bg-bg-base flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* 로고 */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Music2 size={28} className="text-accent" />
-          <span className="text-2xl font-bold tracking-tight">Soundwave</span>
+        <div className="flex items-center justify-center mb-8">
+          <span
+            className="text-2xl text-white/90 leading-none"
+            style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", letterSpacing: "-0.02em" }}
+          >
+            whatpl<span className="text-accent">.</span>
+          </span>
         </div>
 
         <div className="bg-bg-panel border border-border rounded-2xl p-8">

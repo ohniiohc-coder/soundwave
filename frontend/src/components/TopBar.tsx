@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { LogIn, LogOut, User, Music2 } from "lucide-react";
+import { LogIn, LogOut, User } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 
 export function TopBar() {
@@ -12,10 +12,14 @@ export function TopBar() {
       {/* 로고 */}
       <button
         onClick={() => router.push("/")}
-        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        className="hover:opacity-80 transition-opacity"
       >
-        <Music2 size={22} className="text-accent" />
-        <span className="text-lg font-semibold tracking-tight">Soundwave</span>
+        <span
+          className="text-xl tracking-tight leading-none"
+          style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", letterSpacing: "-0.02em" }}
+        >
+          whatpl<span className="text-accent">.</span>
+        </span>
       </button>
       {user ? (
         <div className="flex items-center gap-3">
