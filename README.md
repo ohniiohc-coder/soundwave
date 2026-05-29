@@ -37,6 +37,7 @@ cp .env.example .env
 ### 2. 전체 스택 실행
 
 ```bash
+cd C:\Users\soldesk\Desktop\new_prj
 docker compose up -d
 ```
 
