@@ -188,6 +188,12 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
+class NowPlayingOut(BaseModel):
+    track_id: UUID
+    title: str
+    artist_name: str | None = None
+
+
 class UserPublicOut(BaseModel):
     id: UUID
     display_name: str
@@ -198,6 +204,8 @@ class UserPublicOut(BaseModel):
     following_count: int = 0
     is_following: bool = False
     has_pending_request: bool = False
+    is_online: bool = False
+    now_playing: NowPlayingOut | None = None
 
 
 class FollowRequestOut(BaseModel):

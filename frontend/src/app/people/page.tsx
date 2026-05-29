@@ -50,17 +50,25 @@ function UserCard({
         (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
       }}
     >
-      {/* 아바타 */}
-      <div
-        className="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center text-[13px] font-semibold select-none"
-        style={{
-          background: "#222",
-          border: "1px solid rgba(255,255,255,0.08)",
-          color: "rgba(255,255,255,0.25)",
-          fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)",
-        }}
-      >
-        {initials}
+      {/* 아바타 + 온라인 점 */}
+      <div className="relative flex-shrink-0">
+        <div
+          className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-semibold select-none"
+          style={{
+            background: "#222",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: "rgba(255,255,255,0.25)",
+            fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)",
+          }}
+        >
+          {initials}
+        </div>
+        {user.is_online && (
+          <span
+            className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2"
+            style={{ background: "#4ade80", borderColor: "#111" }}
+          />
+        )}
       </div>
 
       {/* 정보 */}
@@ -72,9 +80,17 @@ function UserCard({
           {user.is_private && <Lock size={10} style={{ color: "rgba(255,255,255,0.25)", flexShrink: 0 }} />}
         </div>
         <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>@{user.username}</p>
-        {user.bio && (
+        {user.now_playing ? (
+          <div className="flex items-center gap-1 mt-0.5">
+            <span style={{ color: "#c8ff00", fontSize: 8, lineHeight: 1 }}>▶</span>
+            <p className="text-[11px] truncate" style={{ color: "rgba(200,255,0,0.6)" }}>
+              {user.now_playing.title}
+              {user.now_playing.artist_name && ` · ${user.now_playing.artist_name}`}
+            </p>
+          </div>
+        ) : user.bio ? (
           <p className="text-[11px] truncate mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>{user.bio}</p>
-        )}
+        ) : null}
         <div className="flex gap-3 mt-1.5">
           <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
             팔로워 <span style={{ color: "rgba(255,255,255,0.5)" }}>{user.follower_count}</span>

@@ -60,6 +60,12 @@ export type AuthUser = {
   created_at: string;
 };
 
+export type NowPlayingInfo = {
+  track_id: string;
+  title: string;
+  artist_name: string | null;
+};
+
 export type PublicUser = {
   id: string;
   display_name: string;
@@ -70,6 +76,8 @@ export type PublicUser = {
   following_count: number;
   is_following: boolean;
   has_pending_request: boolean;
+  is_online: boolean;
+  now_playing: NowPlayingInfo | null;
 };
 
 export type FollowRequest = {
@@ -326,6 +334,14 @@ export const api = {
     }),
   getUnreadCount: () =>
     apiFetch<{ count: number }>("/api/messages/unread"),
+
+  // 지금 듣는 음악 업데이트
+  updateNowPlaying: (trackId: string | null) =>
+    apiFetch<void>("/api/users/me/now-playing", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_id: trackId }),
+    }),
 
   // 팔로우 요청 관리 (수신자 기준)
   getFollowRequests: () =>

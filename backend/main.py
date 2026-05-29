@@ -93,12 +93,23 @@ async def migrate_user_scoped_data():
             )
 
 
+async def migrate_presence():
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS now_playing_track_id UUID REFERENCES tracks(id) ON DELETE SET NULL"
+        ))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await migrate_users_table()
     await migrate_user_bio()
     await migrate_user_scoped_data()
+    await migrate_presence()
     yield
 
 

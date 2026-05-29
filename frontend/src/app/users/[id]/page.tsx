@@ -190,6 +190,19 @@ export default function UserProfilePage() {
               <h1 className="text-[28px] font-semibold leading-tight" style={{ color: "rgba(255,255,255,0.9)" }}>
                 {profile.display_name}
               </h1>
+              {profile.is_online && (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] flex-shrink-0"
+                  style={{
+                    border: "1px solid rgba(74,222,128,0.25)",
+                    color: "#4ade80",
+                    background: "rgba(74,222,128,0.08)",
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "#4ade80" }} />
+                  온라인
+                </span>
+              )}
               {profile.is_private && (
                 <span
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.08em] flex-shrink-0"
@@ -247,6 +260,26 @@ export default function UserProfilePage() {
                 메시지
               </button>
             </div>
+
+            {/* 지금 듣는 음악 */}
+            {profile.now_playing && (
+              <div
+                className="flex items-center gap-3 mb-5 px-4 py-3 rounded-xl"
+                style={{ background: "rgba(200,255,0,0.04)", border: "1px solid rgba(200,255,0,0.12)" }}
+              >
+                <span style={{ color: "#c8ff00", fontSize: 11, flexShrink: 0 }}>▶</span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>
+                    {profile.now_playing.title}
+                  </p>
+                  {profile.now_playing.artist_name && (
+                    <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      {profile.now_playing.artist_name}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* 통계 */}
             <div className="flex gap-8">

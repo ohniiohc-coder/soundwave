@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Header, HTTPException, Depends
@@ -39,6 +39,13 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="유효하지 않거나 만료된 토큰입니다")
 
 
+async def _touch_last_seen(user, db: AsyncSession) -> None:
+    now = datetime.utcnow()
+    if user.last_seen_at is None or (now - user.last_seen_at).total_seconds() > 60:
+        user.last_seen_at = now
+        await db.commit()
+
+
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
@@ -50,7 +57,10 @@ async def get_current_user_optional(
         from models import User
         result = await db.execute(select(User).where(User.id == payload["sub"]))
         user = result.scalar_one_or_none()
-        return user if user and user.is_active else None
+        if user and user.is_active:
+            await _touch_last_seen(user, db)
+            return user
+        return None
     except Exception:
         return None
 
@@ -67,6 +77,7 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="존재하지 않는 사용자입니다")
+    await _touch_last_seen(user, db)
     return user
 
 

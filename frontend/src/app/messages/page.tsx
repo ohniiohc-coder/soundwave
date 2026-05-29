@@ -133,11 +133,19 @@ function MessagesInner() {
                     borderLeft: isSelected ? "2px solid #c8ff00" : "2px solid transparent",
                   }}
                 >
-                  <div
-                    className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-[12px] font-semibold select-none"
-                    style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)" }}
-                  >
-                    {initials(conv.user.display_name)}
+                  <div className="relative flex-shrink-0">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-semibold select-none"
+                      style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)" }}
+                    >
+                      {initials(conv.user.display_name)}
+                    </div>
+                    {conv.user.is_online && (
+                      <span
+                        className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2"
+                        style={{ background: "#4ade80", borderColor: "#0a0a0a" }}
+                      />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1 mb-0.5">
@@ -186,17 +194,30 @@ function MessagesInner() {
             </button>
             {partnerProfile ? (
               <>
-                <div
-                  className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold select-none"
-                  style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)" }}
-                >
-                  {initials(partnerProfile.display_name)}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold select-none"
+                    style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)" }}
+                  >
+                    {initials(partnerProfile.display_name)}
+                  </div>
+                  {partnerProfile.is_online && (
+                    <span
+                      className="absolute bottom-0 right-0 w-2 h-2 rounded-full border-2"
+                      style={{ background: "#4ade80", borderColor: "#0a0a0a" }}
+                    />
+                  )}
                 </div>
                 <Link href={`/users/${partnerProfile.id}`} className="hover:underline min-w-0">
                   <p className="text-[14px] font-medium truncate" style={{ color: "rgba(255,255,255,0.9)" }}>
                     {partnerProfile.display_name}
                   </p>
-                  <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>@{partnerProfile.username}</p>
+                  <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    @{partnerProfile.username}
+                    {partnerProfile.is_online && (
+                      <span className="ml-1.5" style={{ color: "#4ade80" }}>· 온라인</span>
+                    )}
+                  </p>
                 </Link>
               </>
             ) : (

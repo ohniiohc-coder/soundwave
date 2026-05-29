@@ -3,10 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from uuid import UUID
 from typing import Optional
+from datetime import datetime
+from pydantic import BaseModel as PydanticModel
 
 from database import get_db
-from models import User, Follow, FollowRequest, Playlist
-from schemas import UserPublicOut, PlaylistOut, FollowRequestOut
+from models import User, Follow, FollowRequest, Playlist, Track
+from schemas import UserPublicOut, PlaylistOut, FollowRequestOut, NowPlayingOut
 from utils.auth import get_current_user, get_current_user_optional
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -42,6 +44,24 @@ async def _build_public(
             )).scalar_one_or_none()
             has_pending_request = req is not None
 
+    is_online = bool(
+        user.last_seen_at and
+        (datetime.utcnow() - user.last_seen_at).total_seconds() < 300
+    )
+
+    can_see_activity = not user.is_private or is_following
+    now_playing = None
+    if can_see_activity and is_online and user.now_playing_track_id:
+        track = (await db.execute(
+            select(Track).where(Track.id == user.now_playing_track_id)
+        )).scalar_one_or_none()
+        if track:
+            now_playing = NowPlayingOut(
+                track_id=track.id,
+                title=track.title,
+                artist_name=track.artist.name if track.artist else None,
+            )
+
     return UserPublicOut(
         id=user.id,
         display_name=user.display_name,
@@ -52,6 +72,8 @@ async def _build_public(
         following_count=following_count,
         is_following=is_following,
         has_pending_request=has_pending_request,
+        is_online=is_online,
+        now_playing=now_playing,
     )
 
 
@@ -184,6 +206,22 @@ async def get_following(
         select(User).join(Follow, Follow.following_id == User.id).where(Follow.follower_id == user_id)
     )).scalars().all()
     return [await _build_public(u, current_user, db) for u in rows]
+
+
+# ── 지금 듣는 음악 업데이트 ──────────────────────────────────────────────────
+
+class NowPlayingUpdate(PydanticModel):
+    track_id: UUID | None = None
+
+
+@router.put("/me/now-playing", status_code=status.HTTP_204_NO_CONTENT)
+async def update_now_playing(
+    body: NowPlayingUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user.now_playing_track_id = body.track_id
+    await db.commit()
 
 
 # ── 팔로우 요청 관리 (수신자 기준) ───────────────────────────────────────────

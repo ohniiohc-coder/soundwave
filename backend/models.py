@@ -85,6 +85,10 @@ class User(Base):
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_private: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    now_playing_track_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tracks.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
