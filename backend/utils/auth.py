@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Header, HTTPException, Depends
+from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 import bcrypt as _bcrypt
@@ -11,7 +11,6 @@ from sqlalchemy import select
 
 from database import get_db
 
-ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "local-dev-key")
 JWT_SECRET = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 7
@@ -79,11 +78,6 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="존재하지 않는 사용자입니다")
     await _touch_last_seen(user, db)
     return user
-
-
-def verify_admin(x_api_key: str | None = Header(default=None)) -> None:
-    if x_api_key != ADMIN_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 async def require_admin(current_user: "User" = Depends(get_current_user)) -> "User":
