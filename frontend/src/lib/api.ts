@@ -255,13 +255,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ track_id: trackId }),
     }),
-  removeTrackFromPlaylist: (playlistId: string, trackId: string) =>
-    apiFetch<void>(`/api/playlists/${playlistId}/tracks/${trackId}`, { method: "DELETE" }),
-  reorderPlaylist: (playlistId: string, trackIds: string[]) =>
+  removePlaylistItem: (playlistId: string, itemId: string) =>
+    apiFetch<void>(`/api/playlists/${playlistId}/items/${itemId}`, { method: "DELETE" }),
+  reorderPlaylist: (playlistId: string, itemIds: string[]) =>
     apiFetch<void>(`/api/playlists/${playlistId}/tracks/reorder`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ track_ids: trackIds }),
+      body: JSON.stringify({ item_ids: itemIds }),
     }),
 
   // 최근 재생 컨텍스트

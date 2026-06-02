@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --player-height: 88px;
-  --sidebar-width: 240px;
+  --player-height: 76px;
+  --sidebar-width: 72px;
 }
 
 * {

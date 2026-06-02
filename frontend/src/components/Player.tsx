@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { usePlayerStore, PlayerTrack } from "@/store/playerStore";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music2, ListMusic } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, Shuffle, Repeat } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 
@@ -17,10 +16,13 @@ function formatTime(secs: number): string {
 export function Player() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const skipSave = useRef(true); // 초기 로드 중엔 저장 건너뜀
-
+  const skipSave = useRef(true);
   const router = useRouter();
   const { user, initialized } = useAuthStore();
+
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+  const [hovering, setHovering] = useState(false);
 
   const {
     currentTrack, isPlaying, volume, progress, duration, isQueueOpen,
@@ -29,7 +31,6 @@ export function Player() {
     queue, contextType, activeContextId, contextTracks, contextPlayKey,
   } = usePlayerStore();
 
-  // ── 앱 시작 시 DB에서 대기열 복원 ──────────────────────────────────────
   useEffect(() => {
     api.getQueue().then((pl) => {
       if (!pl.items.length) { skipSave.current = false; return; }
@@ -46,26 +47,18 @@ export function Player() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 로그인 상태 확인 — 미로그인 시 재생 차단 ──────────────────────────
   useEffect(() => {
     if (!initialized) return;
-    if (isPlaying && !user) {
-      pauseStore();
-      router.push("/login");
-    }
+    if (isPlaying && !user) { pauseStore(); router.push("/login"); }
   }, [isPlaying, user, initialized]);
 
-  // ── 컨텍스트(앨범/플레이리스트) 변경 시 DB에 최근 재생 저장 ────────────
   useEffect(() => {
     if (!activeContextId || !contextType) return;
-    const name = contextType === "album"
-      ? (contextTracks[0]?.albumTitle ?? "")
-      : activeContextId; // 플레이리스트 이름은 QueuePanel에서 덮어씀
+    const name = contextType === "album" ? (contextTracks[0]?.albumTitle ?? "") : activeContextId;
     if (!name) return;
     api.upsertRecentContext(contextType, activeContextId, name).catch(() => {});
   }, [activeContextId, contextType]);
 
-  // ── 대기열 변경 시 1초 디바운스로 DB 저장 ─────────────────────────────
   useEffect(() => {
     if (skipSave.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -81,14 +74,10 @@ export function Player() {
     const audio = audioRef.current;
     if (!audio || !track) return;
     const src = api.streamUrl(track.id);
-    if (audio.src !== src) {
-      audio.src = src;
-      audio.load();
-    }
+    if (audio.src !== src) { audio.src = src; audio.load(); }
     if (isPlaying) audio.play().catch(() => {});
   }, [track?.id]);
 
-  // 같은 앨범/플레이리스트를 다시 재생하면 처음부터 재시작
   useEffect(() => {
     if (contextPlayKey === 0) return;
     const audio = audioRef.current;
@@ -127,95 +116,129 @@ export function Player() {
 
   return (
     <>
-      <audio
-        ref={audioRef}
-        onTimeUpdate={onTimeUpdate}
-        onLoadedMetadata={onLoadedMetadata}
-        onEnded={next}
-      />
-      <div
-        className="fixed bottom-0 left-0 right-0 border-t border-border flex items-center px-4 gap-4 z-50 backdrop-blur-xl"
-        style={{ height: "var(--player-height)", background: "rgba(10,10,10,0.85)" }}
-      >
-        {/* 트랙 정보 */}
-        <div className="flex items-center gap-3 w-64 min-w-0">
-          <div className="w-12 h-12 rounded bg-bg-elevated flex-shrink-0 overflow-hidden">
-            {track?.coverUrl ? (
-              <Image src={track.coverUrl} alt={track.albumTitle || ""} width={48} height={48} className="object-cover w-full h-full" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Music2 size={18} className="text-muted" />
-              </div>
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{track?.title ?? "재생 중 없음"}</p>
-            <p className="text-xs text-muted truncate">{track?.artistName ?? ""}</p>
-          </div>
-        </div>
+      <audio ref={audioRef} onTimeUpdate={onTimeUpdate} onLoadedMetadata={onLoadedMetadata} onEnded={next} />
 
-        {/* 컨트롤 + 진행 바 */}
-        <div className="flex-1 flex flex-col items-center gap-1.5">
-          <div className="flex items-center gap-5">
-            <button onClick={prev} className="text-muted hover:text-white transition-colors">
-              <SkipBack size={20} />
+      <div
+        className="fixed z-[60] flex flex-col overflow-hidden"
+        style={{
+          bottom: 19,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 578,
+          height: 60,
+          borderRadius: 36,
+          background: "rgba(38,38,38,0.95)",
+          backdropFilter: "blur(32px) saturate(180%)",
+          WebkitBackdropFilter: "blur(32px) saturate(180%)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.06) inset",
+        }}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+      >
+        {/* 컨트롤 행 */}
+        <div className="flex items-center flex-1 px-5">
+
+          {/* 왼쪽: 재생 컨트롤 */}
+          <div className="flex items-center gap-3.5 flex-1">
+            <button
+              onClick={() => setShuffle(s => !s)}
+              style={{ color: shuffle ? "#c8ff00" : "rgba(255,255,255,0.4)" }}
+              className="transition-colors hover:brightness-125"
+            >
+              <Shuffle size={14} />
+            </button>
+            <button
+              onClick={prev}
+              style={{ color: "rgba(255,255,255,0.75)" }}
+              className="transition-all hover:text-white"
+            >
+              <SkipBack size={18} fill="currentColor" />
             </button>
             <button
               onClick={toggle}
-              className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:scale-105 transition-transform text-black"
+              className="flex items-center justify-center transition-transform hover:scale-105 active:scale-95 flex-shrink-0"
+              style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: "rgba(255,255,255,0.95)",
+              }}
             >
-              {isPlaying ? <Pause size={18} fill="black" /> : <Play size={18} fill="black" />}
+              {isPlaying
+                ? <Pause size={14} fill="black" color="black" />
+                : <Play size={14} fill="black" color="black" style={{ marginLeft: 2 }} />}
             </button>
-            <button onClick={next} className="text-muted hover:text-white transition-colors">
-              <SkipForward size={20} />
+            <button
+              onClick={next}
+              style={{ color: "rgba(255,255,255,0.75)" }}
+              className="transition-all hover:text-white"
+            >
+              <SkipForward size={18} fill="currentColor" />
+            </button>
+            <button
+              onClick={() => setRepeat(r => !r)}
+              style={{ color: repeat ? "#c8ff00" : "rgba(255,255,255,0.4)" }}
+              className="transition-colors hover:brightness-125"
+            >
+              <Repeat size={14} />
             </button>
           </div>
-          <div className="flex items-center gap-2 w-full max-w-lg">
-            <span className="text-xs text-muted w-10 text-right">{formatTime(progress)}</span>
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              value={progress}
-              onChange={onSeek}
-              className="flex-1"
-              style={{
-                background: `linear-gradient(to right, #c8ff00 ${progressPct}%, rgba(255,255,255,0.08) ${progressPct}%)`,
-              }}
-            />
-            <span className="text-xs text-muted w-10">{formatTime(duration)}</span>
+
+          {/* 오른쪽: 큐 + 볼륨 */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleQueue}
+              style={{ color: isQueueOpen ? "#c8ff00" : "rgba(255,255,255,0.45)" }}
+              className="transition-colors hover:brightness-125"
+              title="재생 대기열"
+            >
+              <ListMusic size={15} />
+            </button>
+            <button
+              onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
+              style={{ color: "rgba(255,255,255,0.45)" }}
+              className="transition-colors hover:text-white"
+            >
+              {volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            </button>
           </div>
         </div>
 
-        {/* 큐 버튼 + 볼륨 */}
-        <div className="flex items-center gap-2 w-40 justify-end">
-          <button
-            onClick={toggleQueue}
-            className={`transition-colors ${isQueueOpen ? "text-accent" : "text-muted hover:text-white"}`}
-            title="재생 대기열"
-          >
-            <ListMusic size={18} />
-          </button>
-          <button
-            onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
-            className="text-muted hover:text-white transition-colors"
-          >
-            {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-          </button>
+        {/* 하단 progress 라인 */}
+        <div className="flex-shrink-0 relative" style={{ height: 3 }}>
+          {/* 시각적 트랙 */}
+          <div className="absolute inset-0" style={{ background: "rgba(255,255,255,0.07)" }}>
+            <div className="h-full transition-none" style={{ width: `${progressPct}%`, background: "#c8ff00", opacity: 0.8 }} />
+          </div>
+          {/* 클릭/드래그 가능한 투명 range input */}
           <input
             type="range"
             min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="w-24"
-            style={{
-              background: `linear-gradient(to right, #c8ff00 ${volume * 100}%, rgba(255,255,255,0.08) ${volume * 100}%)`,
-            }}
+            max={duration || 0}
+            value={progress}
+            onChange={onSeek}
+            className="absolute opacity-0 cursor-pointer"
+            style={{ inset: 0, width: "100%", height: "300%", top: "-150%", margin: 0, padding: 0 }}
           />
         </div>
       </div>
+
+      {/* hover 시 시간 툴팁 */}
+      {hovering && track && (
+        <div
+          className="fixed z-[60] flex items-center gap-1 pointer-events-none"
+          style={{
+            bottom: 72,
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: 10,
+            color: "rgba(255,255,255,0.45)",
+          }}
+        >
+          <span>{formatTime(progress)}</span>
+          <span style={{ color: "rgba(255,255,255,0.2)" }}>/</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      )}
     </>
   );
 }

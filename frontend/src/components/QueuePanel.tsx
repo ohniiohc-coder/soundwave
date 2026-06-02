@@ -94,11 +94,6 @@ export function QueuePanel() {
     setDragOver(null);
   };
 
-  const handleRemoveFromPlaylist = async (trackId: string) => {
-    if (!detail) return;
-    await api.removeTrackFromPlaylist(detail.id, trackId).catch(() => {});
-    setDetail((d) => d ? { ...d, items: d.items.filter((i) => i.track_id !== trackId), track_count: d.track_count - 1 } : null);
-  };
 
   // 컨텍스트 탭 헤더 텍스트
   const contextHeaderName = contextType === "album"
@@ -114,8 +109,8 @@ export function QueuePanel() {
       <div className="fixed inset-0 z-40" onClick={toggleQueue} />
 
       <div
-        className="fixed right-0 top-0 z-50 flex flex-col bg-bg-panel border-l border-border shadow-2xl"
-        style={{ width: "340px", bottom: "var(--player-height)" }}
+        className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-bg-panel border-l border-border shadow-2xl"
+        style={{ width: "340px" }}
       >
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
@@ -382,12 +377,12 @@ export function QueuePanel() {
                         if (from !== null && from !== idx) {
                           reorderContext(from, idx);
                           // 플레이리스트 모드면 DB에도 저장
-                          if (contextType === "playlist" && activeContextId) {
-                            // 로컬 reorder 후 새 순서의 track IDs 계산
-                            const next = [...contextTracks];
-                            const [moved] = next.splice(from, 1);
-                            next.splice(idx, 0, moved);
-                            api.reorderPlaylist(activeContextId, next.map((t) => t.id)).catch(() => {});
+                          if (contextType === "playlist" && activeContextId && detail) {
+                            const nextItems = [...detail.items];
+                            const [movedItem] = nextItems.splice(from, 1);
+                            nextItems.splice(idx, 0, movedItem);
+                            setDetail((d) => d ? { ...d, items: nextItems } : null);
+                            api.reorderPlaylist(activeContextId, nextItems.map((i) => i.id)).catch(() => {});
                           }
                         }
                         ctxDragFrom.current = null;
@@ -430,8 +425,16 @@ export function QueuePanel() {
                             e.stopPropagation();
                             removeFromContext(idx);
                             // 플레이리스트 컨텍스트일 때만 DB에도 반영
-                            if (contextType === "playlist" && activeContextId) {
-                              api.removeTrackFromPlaylist(activeContextId, row.trackId).catch(() => {});
+                            if (contextType === "playlist" && activeContextId && detail) {
+                              const itemId = detail.items[idx]?.id;
+                              if (itemId) {
+                                api.removePlaylistItem(activeContextId, itemId).catch(() => {});
+                                setDetail((d) => {
+                                  if (!d) return null;
+                                  const items = [...d.items.slice(0, idx), ...d.items.slice(idx + 1)];
+                                  return { ...d, items, track_count: d.track_count - 1 };
+                                });
+                              }
                             }
                           }}
                           className="p-1 rounded opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 transition-all"

@@ -58,14 +58,16 @@ export default function PlaylistPage() {
     window.location.href = "/";
   };
 
-  const handleRemoveTrack = async (trackId: string) => {
+  const handleRemoveTrack = async (itemId: string) => {
     if (!playlist) return;
-    await api.removeTrackFromPlaylist(playlist.id, trackId);
-    setPlaylist((p) => p ? {
-      ...p,
-      items: p.items.filter((i) => i.track_id !== trackId),
-      track_count: p.track_count - 1,
-    } : null);
+    await api.removePlaylistItem(playlist.id, itemId);
+    setPlaylist((p) => {
+      if (!p) return null;
+      const idx = p.items.findIndex((i) => i.id === itemId);
+      if (idx === -1) return p;
+      const items = [...p.items.slice(0, idx), ...p.items.slice(idx + 1)];
+      return { ...p, items, track_count: p.track_count - 1 };
+    });
   };
 
   const handleDragStart = (e: React.DragEvent, i: number) => {
@@ -85,7 +87,7 @@ export default function PlaylistPage() {
       items.splice(to, 0, moved);
       setPlaylist((p) => p ? { ...p, items } : null);
       // DB에 새 순서 저장
-      api.reorderPlaylist(playlist.id, items.map((i) => i.track.id)).catch(() => {});
+      api.reorderPlaylist(playlist.id, items.map((i) => i.id)).catch(() => {});
     }
     dragFrom.current = null;
     setDragOver(null);
@@ -225,7 +227,7 @@ export default function PlaylistPage() {
                     <span className="text-xs text-muted">{fmt(item.track.duration_seconds)}</span>
                     {user && (
                       <button
-                        onClick={() => handleRemoveTrack(item.track.id)}
+                        onClick={() => handleRemoveTrack(item.id)}
                         className="p-1 rounded opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 transition-all"
                         title="목록에서 제거"
                       >

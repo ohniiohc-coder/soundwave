@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { ListPlus, Check, Plus } from "lucide-react";
+import { ListPlus, Plus } from "lucide-react";
 import { api, Playlist } from "@/lib/api";
 
 type Props = { trackId: string };
@@ -8,7 +8,6 @@ type Props = { trackId: string };
 export function AddToPlaylistButton({ trackId }: Props) {
   const [open, setOpen] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [added, setAdded] = useState<Set<string>>(new Set());
   const [creatingNew, setCreatingNew] = useState(false);
   const [newName, setNewName] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -31,7 +30,7 @@ export function AddToPlaylistButton({ trackId }: Props) {
   const handleAdd = async (playlistId: string) => {
     try {
       await api.addTrackToPlaylist(playlistId, trackId);
-      setAdded((prev) => new Set(prev).add(playlistId));
+      setOpen(false);
     } catch {}
   };
 
@@ -41,10 +40,7 @@ export function AddToPlaylistButton({ trackId }: Props) {
     try {
       const pl = await api.createPlaylist(name);
       await api.addTrackToPlaylist(pl.id, trackId);
-      setPlaylists((prev) => [pl, ...prev]);
-      setAdded((prev) => new Set(prev).add(pl.id));
-      setCreatingNew(false);
-      setNewName("");
+      setOpen(false);
     } catch {}
   };
 
@@ -96,7 +92,6 @@ export function AddToPlaylistButton({ trackId }: Props) {
                 className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-bg-hover transition-colors"
               >
                 <span className="truncate text-left">{pl.name}</span>
-                {added.has(pl.id) && <Check size={13} className="text-accent flex-shrink-0" />}
               </button>
             ))}
             {playlists.length === 0 && !creatingNew && (

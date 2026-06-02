@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="flex h-screen flex-col">
           <ContentArea>
             <Sidebar />
-            <main className="flex-1 overflow-y-auto bg-bg-base h-full">
+            <main className="flex-1 overflow-y-auto bg-bg-base h-full pb-24">
               {children}
             </main>
           </ContentArea>

@@ -15,7 +15,7 @@ from utils.auth import get_current_user
 
 
 class ReorderRequest(BaseModel):
-    track_ids: list[UUID]
+    item_ids: list[UUID]
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 
@@ -141,14 +141,9 @@ async def add_track(
     if not t_res.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Track not found")
 
-    dup = await db.execute(select(PlaylistTrack).where(
-        PlaylistTrack.playlist_id == playlist_id,
-        PlaylistTrack.track_id == data.track_id,
-    ))
-    if not dup.scalar_one_or_none():
-        db.add(PlaylistTrack(playlist_id=playlist_id, track_id=data.track_id, position=len(pl.items)))
-        await db.commit()
-        await db.refresh(pl)
+    db.add(PlaylistTrack(playlist_id=playlist_id, track_id=data.track_id, position=len(pl.items)))
+    await db.commit()
+    await db.refresh(pl)
     return _playlist_out(pl)
 
 
@@ -161,10 +156,10 @@ async def reorder_tracks(
 ):
     await _get_owned_playlist(playlist_id, current_user, db)
 
-    for pos, track_id in enumerate(data.track_ids):
+    for pos, item_id in enumerate(data.item_ids):
         item_result = await db.execute(select(PlaylistTrack).where(
+            PlaylistTrack.id == item_id,
             PlaylistTrack.playlist_id == playlist_id,
-            PlaylistTrack.track_id == track_id,
         ))
         item = item_result.scalar_one_or_none()
         if item:
@@ -172,21 +167,21 @@ async def reorder_tracks(
     await db.commit()
 
 
-@router.delete("/{playlist_id}/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_track(
+@router.delete("/{playlist_id}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_item(
     playlist_id: UUID,
-    track_id: UUID,
+    item_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_owned_playlist(playlist_id, current_user, db)
 
     result = await db.execute(select(PlaylistTrack).where(
+        PlaylistTrack.id == item_id,
         PlaylistTrack.playlist_id == playlist_id,
-        PlaylistTrack.track_id == track_id,
     ))
     item = result.scalar_one_or_none()
     if not item:
-        raise HTTPException(status_code=404, detail="Track not in playlist")
+        raise HTTPException(status_code=404, detail="Item not found")
     await db.delete(item)
     await db.commit()
