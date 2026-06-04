@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayerStore, PlayerTrack } from "@/store/playerStore";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, Shuffle, Repeat } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, Shuffle, Repeat, Repeat1 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 
@@ -20,15 +20,13 @@ export function Player() {
   const router = useRouter();
   const { user, initialized } = useAuthStore();
 
-  const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const [hovering, setHovering] = useState(false);
 
   const {
     currentTrack, isPlaying, volume, progress, duration, isQueueOpen,
     toggle, next, prev, setQueue, pause: pauseStore,
     setVolume, setProgress, setDuration, toggleQueue,
     queue, contextType, activeContextId, contextTracks, contextPlayKey,
+    shuffle, repeat, toggleShuffle, cycleRepeat,
   } = usePlayerStore();
 
   useEffect(() => {
@@ -116,7 +114,19 @@ export function Player() {
 
   return (
     <>
-      <audio ref={audioRef} onTimeUpdate={onTimeUpdate} onLoadedMetadata={onLoadedMetadata} onEnded={next} />
+      <audio
+        ref={audioRef}
+        onTimeUpdate={onTimeUpdate}
+        onLoadedMetadata={onLoadedMetadata}
+        onEnded={() => {
+          if (repeat === "one") {
+            const audio = audioRef.current;
+            if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
+          } else {
+            next();
+          }
+        }}
+      />
 
       <div
         className="fixed z-[60] flex flex-col overflow-hidden"
@@ -133,8 +143,6 @@ export function Player() {
           border: "1px solid rgba(255,255,255,0.12)",
           boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.06) inset",
         }}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
       >
         {/* 컨트롤 행 */}
         <div className="flex items-center flex-1 px-5">
@@ -142,9 +150,10 @@ export function Player() {
           {/* 왼쪽: 재생 컨트롤 */}
           <div className="flex items-center gap-3.5 flex-1">
             <button
-              onClick={() => setShuffle(s => !s)}
+              onClick={toggleShuffle}
               style={{ color: shuffle ? "#c8ff00" : "rgba(255,255,255,0.4)" }}
               className="transition-colors hover:brightness-125"
+              title="셔플"
             >
               <Shuffle size={14} />
             </button>
@@ -175,12 +184,23 @@ export function Player() {
               <SkipForward size={18} fill="currentColor" />
             </button>
             <button
-              onClick={() => setRepeat(r => !r)}
-              style={{ color: repeat ? "#c8ff00" : "rgba(255,255,255,0.4)" }}
+              onClick={cycleRepeat}
+              style={{ color: repeat !== "off" ? "#c8ff00" : "rgba(255,255,255,0.4)" }}
               className="transition-colors hover:brightness-125"
+              title={repeat === "off" ? "반복 꺼짐" : repeat === "all" ? "전체 반복" : "한 곡 반복"}
             >
-              <Repeat size={14} />
+              {repeat === "one" ? <Repeat1 size={14} /> : <Repeat size={14} />}
             </button>
+            {track && (
+              <span
+                className="flex items-center gap-1 tabular-nums flex-shrink-0"
+                style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}
+              >
+                <span>{formatTime(progress)}</span>
+                <span style={{ color: "rgba(255,255,255,0.15)" }}>/</span>
+                <span>{formatTime(duration)}</span>
+              </span>
+            )}
           </div>
 
           {/* 오른쪽: 큐 + 볼륨 */}
@@ -206,7 +226,7 @@ export function Player() {
         {/* 하단 progress 라인 */}
         <div className="flex-shrink-0 relative" style={{ height: 3 }}>
           {/* 시각적 트랙 */}
-          <div className="absolute inset-0" style={{ background: "rgba(255,255,255,0.07)" }}>
+          <div className="absolute" style={{ top: 0, bottom: 0, left: 15, right: 15, background: "rgba(255,255,255,0.07)" }}>
             <div className="h-full transition-none" style={{ width: `${progressPct}%`, background: "#c8ff00", opacity: 0.8 }} />
           </div>
           {/* 클릭/드래그 가능한 투명 range input */}
@@ -217,28 +237,11 @@ export function Player() {
             value={progress}
             onChange={onSeek}
             className="absolute opacity-0 cursor-pointer"
-            style={{ inset: 0, width: "100%", height: "300%", top: "-150%", margin: 0, padding: 0 }}
+            style={{ left: 15, right: 15, width: "calc(100% - 30px)", height: "300%", top: "-150%", margin: 0, padding: 0 }}
           />
         </div>
       </div>
 
-      {/* hover 시 시간 툴팁 */}
-      {hovering && track && (
-        <div
-          className="fixed z-[60] flex items-center gap-1 pointer-events-none"
-          style={{
-            bottom: 72,
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontSize: 10,
-            color: "rgba(255,255,255,0.45)",
-          }}
-        >
-          <span>{formatTime(progress)}</span>
-          <span style={{ color: "rgba(255,255,255,0.2)" }}>/</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-      )}
     </>
   );
 }

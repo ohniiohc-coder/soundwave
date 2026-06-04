@@ -71,9 +71,9 @@ docker compose restart backend
 ├── frontend/
 │   └── src/
 │       ├── app/
-│       │   ├── page.tsx              # 홈 (최신 앨범·아티스트)
+│       │   ├── page.tsx              # 홈 (지금 듣는 중 · 최신 앨범 · 아티스트)
 │       │   ├── template.tsx          # 페이지 전환 애니메이션
-│       │   ├── browse/               # 통합 검색 (트랙·앨범·아티스트)
+│       │   ├── browse/               # 통합 검색 (트랙·앨범·아티스트·사람)
 │       │   ├── albums/               # 앨범 목록
 │       │   ├── album/[id]/           # 앨범 상세
 │       │   ├── artists/              # 아티스트 목록
@@ -82,15 +82,15 @@ docker compose restart backend
 │       │   ├── playlists/[id]/       # 플레이리스트 상세
 │       │   ├── profile/              # 내 프로필 (편집·비공개 설정·팔로우 요청 관리)
 │       │   ├── users/[id]/           # 타 유저 프로필 (팔로우·DM 버튼)
-│       │   ├── people/               # 유저 검색·팔로우
-│       │   ├── messages/             # DM (대화 목록 + 메시지 스레드)
 │       │   ├── upload/               # 음악 업로드 (어드민)
 │       │   ├── login/
 │       │   └── register/             # 실시간 아이디 중복 검사 포함
 │       ├── components/
-│       │   ├── Sidebar.tsx           # 내비게이션 + 플레이리스트 목록 + 안읽은 DM 배지
-│       │   ├── Player.tsx            # 하단 플레이어 바
-│       │   ├── QueuePanel.tsx        # 재생 대기열 패널
+│       │   ├── Sidebar.tsx           # 내비게이션 사이드바 (hover 확장)
+│       │   ├── Player.tsx            # 하단 플로팅 pill 플레이어
+│       │   ├── QueuePanel.tsx        # 재생 대기열 패널 (플레이어 위 팝업)
+│       │   ├── DMPanel.tsx           # DM 플로팅 패널 (inbox·새 메시지·채팅)
+│       │   ├── NowPlayingOrbs.tsx    # 홈 — 팔로잉 유저 현재 재생 중 표시
 │       │   ├── PlayerSection.tsx
 │       │   ├── ContentArea.tsx
 │       │   ├── AuthInit.tsx
@@ -99,7 +99,8 @@ docker compose restart backend
 │       │   ├── ArtistCard.tsx
 │       │   └── AddToPlaylistButton.tsx
 │       ├── store/
-│       │   ├── playerStore.ts
+│       │   ├── playerStore.ts        # 재생 상태 (셔플·반복 포함)
+│       │   ├── dmPanelStore.ts       # DM 패널 열림/뷰 상태
 │       │   └── authStore.ts
 │       └── lib/
 │           └── api.ts                # API 클라이언트 (JWT 헤더 자동 포함)
@@ -145,8 +146,9 @@ docker compose restart backend
 - **프로필**: 표시명·바이오 편집, 비공개 계정 전환
 - **비공개 계정**: 팔로우 시 승인 요청 발송 → 계정 소유자가 수락/거절
 - **팔로우/언팔로우**: 공개 계정은 즉시, 비공개 계정은 요청 후 승인 시 성립
-- **사람 찾기**: 이름·아이디 검색, 카드에서 바로 팔로우
-- **DM**: 1:1 다이렉트 메시지, 대화 목록, 안읽은 메시지 배지, 4초 폴링
+- **통합 검색** (`/browse`): 트랙·앨범·아티스트·사람을 탭으로 구분해 한 화면에서 검색
+- **DM 플로팅 패널**: 화면 우하단 버튼으로 열리는 오버레이 패널 (inbox·새 메시지·채팅). 페이지 이동 없이 어디서든 접근 가능
+- **지금 듣는 중**: 홈 화면 상단에 팔로잉 유저가 현재 재생 중인 곡을 floating orb 형태로 표시. hover 시 곡 정보 카드 표시, 15초 폴링
 
 ### 음악 관리
 - **자동 메타데이터 추출**: MP3/FLAC/M4A 태그 자동 파싱 (트랙명·아티스트·앨범·연도·장르)
@@ -158,7 +160,10 @@ docker compose restart backend
 - **HTTP Range 스트리밍**: Seek 지원 (MP3/FLAC/M4A/WAV/OGG)
 - **두 가지 재생 모드**: 큐(단일 트랙 추가) / 컨텍스트(앨범·플레이리스트 전체 재생)
 - **재생 대기열 영속**: 새로고침 후에도 유지 (DB 저장, 유저별 독립)
-- **재생 대기열 패널**: 드래그 순서 변경, 개별 제거, 최근 재생 드롭다운
+- **재생 대기열 패널**: 드래그 순서 변경, 개별 제거, 최근 재생 드롭다운 (플레이어 위 팝업 슬라이드)
+- **셔플**: 랜덤 순서 재생
+- **반복 재생**: 전체 반복 / 한 곡 반복 (off → all → one 순환). 한 곡 반복이 셔플보다 우선 적용
+- **플로팅 pill UI**: 하단 중앙 고정 pill 형태 컨트롤바, 진행 바 인라인 표시
 
 ### 플레이리스트
 - 생성·이름 변경·삭제, 트랙 추가·순서 변경·제거

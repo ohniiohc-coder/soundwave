@@ -22,7 +22,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 스크롤바 스타일 */
+/* 스크롤바 스타일 — Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* 스크롤바 스타일 — Chrome / Safari / Edge */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -37,10 +43,26 @@ body {
   background: rgba(255, 255, 255, 0.18);
 }
 
+/* 지금 듣는 중 — floating orbs */
+@keyframes npf-a { 0%,100% { transform: translate(0,0) } 50% { transform: translate(5px,-14px) } }
+@keyframes npf-b { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-6px,-12px) } }
+@keyframes npf-c { 0%,100% { transform: translate(0,0) } 50% { transform: translate(6px,13px) } }
+@keyframes npf-d { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-5px,11px) } }
+
 /* 페이지 전환 애니메이션 */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 재생목록 패널 */
+@keyframes queueSlideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes queueSlideDown {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(16px); }
 }
 
 /* 오디오 range input */

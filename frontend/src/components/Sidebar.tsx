@@ -1,19 +1,18 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Home, Disc3, Mic2, Search, Upload, ListMusic, LogIn, LogOut, Users, MessageSquare } from "lucide-react";
+import { Home, Disc3, Mic2, Search, Upload, ListMusic, LogIn, LogOut } from "lucide-react";
 import clsx from "clsx";
-import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+
+const PLAYFAIR = "var(--font-playfair, 'Playfair Display', Georgia, serif)";
 
 const navItems = [
   { href: "/", label: "홈", icon: Home },
-  { href: "/browse", label: "탐색", icon: Search },
+  { href: "/browse", label: "검색", icon: Search },
   { href: "/albums", label: "앨범", icon: Disc3 },
   { href: "/artists", label: "아티스트", icon: Mic2 },
   { href: "/playlists", label: "플레이리스트", icon: ListMusic },
-  { href: "/people", label: "사람 찾기", icon: Users },
-  { href: "/messages", label: "메시지", icon: MessageSquare },
 ];
 
 const adminNavItems = [
@@ -24,56 +23,95 @@ export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
-  const [unreadDm, setUnreadDm] = useState(0);
+  const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    if (user) api.getUnreadCount().then((r) => setUnreadDm(r.count)).catch(() => {});
-  }, [pathname, user]);
+  // 아이콘 버튼 공통 클래스: collapsed → justify-center / expanded → px-3 gap-3
+  const btnBase = (extra?: string) =>
+    clsx(
+      "flex items-center py-3 rounded-xl transition-colors w-full",
+      expanded ? "gap-3 px-3 justify-start" : "justify-center",
+      extra
+    );
+
+  const labelStyle: React.CSSProperties = {
+    maxWidth: expanded ? 140 : 0,
+    opacity: expanded ? 1 : 0,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    transition: "max-width 0.2s, opacity 0.2s",
+  };
 
   return (
     <aside
-      className="hidden md:flex flex-col items-center bg-bg-panel border-r border-border py-4 gap-1"
-      style={{ width: "var(--sidebar-width)", minWidth: "var(--sidebar-width)" }}
+      className="flex flex-col bg-bg-panel border-r border-border py-4 gap-1 overflow-hidden transition-all duration-200 absolute inset-y-0 left-0 z-40"
+      style={{ width: expanded ? 200 : 72 }}
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
     >
       {/* 로고 */}
       <button
         onClick={() => router.push("/")}
-        className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/[0.06] transition-colors mb-3"
         title="whatpl."
+        className={clsx(
+          "flex items-center h-12 mb-2 hover:bg-white/[0.06] rounded-xl mx-2 transition-colors flex-shrink-0",
+          expanded ? "px-4 gap-0" : "justify-center"
+        )}
       >
+        {/* "w" — 항상 표시 */}
         <span
-          className="text-[32px] text-white/90 leading-none"
-          style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", letterSpacing: "-0.02em" }}
+          className="flex-shrink-0 leading-none"
+          style={{ fontFamily: PLAYFAIR, fontSize: 28, color: "rgba(255,255,255,0.9)", letterSpacing: "-0.02em" }}
         >
-          w<span className="text-accent">.</span>
+          w
+        </span>
+        {/* "." — collapsed 때만 표시 */}
+        <span
+          className="leading-none overflow-hidden transition-all duration-200"
+          style={{
+            fontFamily: PLAYFAIR,
+            fontSize: 28,
+            color: "#c8ff00",
+            letterSpacing: "-0.02em",
+            maxWidth: expanded ? 0 : 14,
+            opacity: expanded ? 0 : 1,
+          }}
+        >
+          .
+        </span>
+        {/* "hatpl." — expanded 때만 표시 */}
+        <span
+          className="leading-none overflow-hidden whitespace-nowrap transition-all duration-200"
+          style={{
+            fontFamily: PLAYFAIR,
+            fontSize: 28,
+            color: "rgba(255,255,255,0.9)",
+            letterSpacing: "-0.02em",
+            maxWidth: expanded ? 120 : 0,
+            opacity: expanded ? 1 : 0,
+          }}
+        >
+          hatpl<span style={{ color: "#c8ff00" }}>.</span>
         </span>
       </button>
 
       {/* 내비게이션 */}
-      <nav className="flex flex-col items-center gap-1 w-full px-2">
+      <nav className="flex flex-col gap-0.5 px-2 flex-1 justify-center">
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname.startsWith(href) && (href === "/" ? pathname === "/" : true);
           return (
             <button
               key={href}
               onClick={() => router.push(href)}
-              title={label}
+              title={!expanded ? label : undefined}
               className={clsx(
-                "relative w-full flex items-center justify-center py-2.5 rounded-xl transition-colors",
+                btnBase(),
                 isActive
-                  ? "bg-white/[0.08] text-white"
-                  : "text-muted hover:text-white hover:bg-white/[0.04]"
+                  ? "bg-white/[0.12] text-white"
+                  : "text-muted hover:text-white hover:bg-white/[0.08]"
               )}
             >
-              <Icon size={20} className={isActive ? "opacity-100" : "opacity-60"} />
-              {href === "/messages" && unreadDm > 0 && (
-                <span
-                  className="absolute top-1.5 right-2 flex items-center justify-center rounded-full text-[8px] font-bold min-w-[14px] h-3.5 px-1"
-                  style={{ background: "#c8ff00", color: "#000" }}
-                >
-                  {unreadDm > 99 ? "99+" : unreadDm}
-                </span>
-              )}
+              <Icon size={24} className={clsx("flex-shrink-0", isActive ? "opacity-100" : "opacity-60")} />
+              <span className="text-sm font-medium" style={labelStyle}>{label}</span>
             </button>
           );
         })}
@@ -82,52 +120,60 @@ export function Sidebar() {
           <button
             key={href}
             onClick={() => router.push(href)}
-            title={label}
+            title={!expanded ? label : undefined}
             className={clsx(
-              "w-full flex items-center justify-center py-2.5 rounded-xl transition-colors",
+              btnBase(),
               pathname === href
-                ? "bg-white/[0.08] text-white"
-                : "text-muted hover:text-white hover:bg-white/[0.04]"
+                ? "bg-white/[0.12] text-white"
+                : "text-muted hover:text-white hover:bg-white/[0.08]"
             )}
           >
-            <Icon size={20} className="opacity-60" />
+            <Icon size={24} className="flex-shrink-0 opacity-60" />
+            <span className="text-sm font-medium" style={labelStyle}>{label}</span>
           </button>
         ))}
-      </nav>
 
-      {/* 유저 / 로그인 — 하단 */}
-      <div className="mt-auto flex flex-col items-center gap-1 w-full px-2">
-        {user ? (
-          <>
+        {/* 프로필 / 로그인 — nav 하단, 중앙 정렬 그룹에 포함 */}
+        <div className="mt-2">
+          {user ? (
             <button
               onClick={() => router.push("/profile")}
-              title={user.username}
-              className="w-full flex items-center justify-center py-2.5 rounded-xl hover:bg-white/[0.04] transition-colors"
+              title={!expanded ? user.username : undefined}
+              className={btnBase("hover:bg-white/[0.08]")}
             >
-              <div className="w-7 h-7 rounded-full bg-bg-elevated border border-border flex items-center justify-center flex-shrink-0">
+              <div className="w-[26px] h-[26px] rounded-full bg-bg-elevated border border-border flex items-center justify-center flex-shrink-0">
                 <span className="text-[10px] font-semibold text-muted">
                   {user.display_name.slice(0, 2).toUpperCase()}
                 </span>
               </div>
+              <span className="text-sm text-muted" style={labelStyle}>{user.username}</span>
             </button>
+          ) : (
             <button
-              onClick={() => { logout(); router.push("/"); }}
-              title="로그아웃"
-              className="w-full flex items-center justify-center py-2.5 rounded-xl text-muted hover:text-white hover:bg-white/[0.04] transition-colors"
+              onClick={() => router.push("/login")}
+              title={!expanded ? "로그인" : undefined}
+              className={btnBase("text-muted hover:text-white hover:bg-white/[0.08]")}
             >
-              <LogOut size={18} className="opacity-60" />
+              <LogIn size={24} className="flex-shrink-0 opacity-60" />
+              <span className="text-sm font-medium" style={labelStyle}>로그인</span>
             </button>
-          </>
-        ) : (
+          )}
+        </div>
+      </nav>
+
+      {/* 로그아웃 — 하단 고정 */}
+      {user && (
+        <div className="flex flex-col gap-0.5 px-2">
           <button
-            onClick={() => router.push("/login")}
-            title="로그인"
-            className="w-full flex items-center justify-center py-2.5 rounded-xl text-muted hover:text-white hover:bg-white/[0.04] transition-colors"
+            onClick={() => { logout(); router.push("/"); }}
+            title={!expanded ? "로그아웃" : undefined}
+            className={btnBase("text-muted hover:text-white hover:bg-white/[0.08]")}
           >
-            <LogIn size={20} className="opacity-60" />
+            <LogOut size={22} className="flex-shrink-0 opacity-60" />
+            <span className="text-sm font-medium" style={labelStyle}>로그아웃</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   );
 }

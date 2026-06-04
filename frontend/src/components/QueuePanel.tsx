@@ -25,6 +25,21 @@ export function QueuePanel() {
 
   const [tab, setTab] = useState<"queue" | "context">("queue");
 
+  // 열림/닫힘 애니메이션
+  const [mounted, setMounted] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    if (isQueueOpen) {
+      setMounted(true);
+      setClosing(false);
+    } else if (mounted) {
+      setClosing(true);
+      const t = setTimeout(() => { setMounted(false); setClosing(false); }, 180);
+      return () => clearTimeout(t);
+    }
+  }, [isQueueOpen]);
+
   // 플레이리스트 탭 - 플레이리스트 목록/선택
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -74,7 +89,7 @@ export function QueuePanel() {
     }).catch(() => {});
   }, [selectedId, contextType]);
 
-  if (!isQueueOpen) return null;
+  if (!mounted) return null;
 
   // 드래그 핸들러
   const handleDragStart = (e: React.DragEvent, i: number) => {
@@ -109,27 +124,42 @@ export function QueuePanel() {
       <div className="fixed inset-0 z-40" onClick={toggleQueue} />
 
       <div
-        className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-bg-panel border-l border-border shadow-2xl"
-        style={{ width: "340px" }}
+        className="fixed z-50 flex flex-col overflow-hidden"
+        style={{
+          bottom: 43,
+          left: "50%",
+          width: 578,
+          height: 480,
+          borderRadius: "16px 16px 0 0",
+          background: "rgba(38,38,38,0.95)",
+          backdropFilter: "blur(32px) saturate(180%)",
+          WebkitBackdropFilter: "blur(32px) saturate(180%)",
+          borderLeft: "1px solid rgba(255,255,255,0.12)",
+          borderRight: "1px solid rgba(255,255,255,0.12)",
+          borderTop: "1px solid rgba(255,255,255,0.12)",
+          boxShadow: "0 -8px 32px rgba(0,0,0,0.4)",
+          animation: `${closing ? "queueSlideDown" : "queueSlideUp"} 0.18s ease forwards`,
+        }}
       >
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-          <h2 className="font-semibold text-sm">재생목록</h2>
-          <button onClick={toggleQueue} className="p-1.5 rounded-lg hover:bg-bg-hover text-muted hover:text-white transition-colors">
+        <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <h2 className="font-semibold text-sm text-white/80">재생목록</h2>
+          <button onClick={toggleQueue} className="p-1.5 rounded-lg transition-colors" style={{ color: "rgba(255,255,255,0.4)" }}>
             <X size={16} />
           </button>
         </div>
 
         {/* 탭 */}
-        <div className="flex border-b border-border flex-shrink-0">
+        <div className="flex flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           {(["queue", "context"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={clsx(
                 "flex-1 py-2.5 text-sm font-medium transition-colors",
-                tab === t ? "text-accent border-b-2 border-accent" : "text-muted hover:text-white"
+                tab === t ? "border-b-2 border-accent" : "hover:text-white"
               )}
+              style={{ color: tab === t ? "#c8ff00" : "rgba(255,255,255,0.35)" }}
             >
               {t === "queue" ? "노래" : "플레이리스트"}
             </button>
@@ -139,9 +169,9 @@ export function QueuePanel() {
         {/* ── 노래 탭 ──────────────────────────────────────────────────────── */}
         {tab === "queue" && (
           <>
-            <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 flex-shrink-0">
-              <span className="font-semibold text-sm">전체</span>
-              <span className="text-accent font-semibold text-sm">{queue.length}</span>
+            <div className="px-4 py-2.5 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <span className="font-semibold text-sm text-white/70">전체</span>
+              <span className="font-semibold text-sm" style={{ color: "#c8ff00" }}>{queue.length}</span>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
               {queue.length === 0 ? (
@@ -160,7 +190,7 @@ export function QueuePanel() {
                     onDragEnd={() => { dragFrom.current = null; setDragOver(null); }}
                     className={clsx(
                       "flex items-center gap-2 px-3 py-2.5 transition-colors group select-none",
-                      isActive ? "bg-bg-elevated" : "hover:bg-bg-hover",
+                      isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]",
                       dragOver === i && "border-t-2 border-accent"
                     )}
                   >
@@ -208,7 +238,7 @@ export function QueuePanel() {
         {tab === "context" && (
           <>
             {/* 컨텍스트 헤더 — 앨범/플레이리스트 모두 동일한 드롭다운 */}
-            <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 flex-shrink-0">
+            <div className="px-4 py-2.5 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <div className="relative flex-1">
                 <button
                   onClick={() => setShowSelector((s) => !s)}
@@ -289,7 +319,7 @@ export function QueuePanel() {
                       onDragEnd={() => { ctxDragFrom.current = null; setCtxDragOver(null); }}
                       className={clsx(
                         "flex items-center gap-2 px-3 py-2.5 transition-colors group cursor-pointer select-none",
-                        isActive ? "bg-bg-elevated" : "hover:bg-bg-hover",
+                        isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]",
                         ctxDragOver === i && "border-t-2 border-accent"
                       )}
                       onClick={() => {
@@ -391,7 +421,7 @@ export function QueuePanel() {
                       onDragEnd={() => { ctxDragFrom.current = null; setCtxDragOver(null); }}
                       className={clsx(
                         "flex items-center gap-2 px-3 py-2.5 transition-colors group cursor-pointer select-none",
-                        isActive ? "bg-bg-elevated" : "hover:bg-bg-hover",
+                        isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]",
                         ctxDragOver === idx && "border-t-2 border-accent"
                       )}
                       onClick={() => {

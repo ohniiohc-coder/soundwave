@@ -4,7 +4,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, PublicUser, Playlist } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { useDMPanelStore } from "@/store/dmPanelStore";
 import { ListMusic, Lock, X, Clock, MessageSquare } from "lucide-react";
+import Image from "next/image";
 
 type ModalType = "followers" | "following" | null;
 
@@ -69,6 +71,7 @@ export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user: currentUser, initialized } = useAuthStore();
+  const { openChat } = useDMPanelStore();
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -252,7 +255,7 @@ export default function UserProfilePage() {
                 {followLoading ? "..." : following ? "팔로잉" : pendingRequest ? "요청됨" : "팔로우"}
               </button>
               <button
-                onClick={() => router.push(`/messages?with=${id}`)}
+                onClick={() => openChat(id)}
                 className="inline-flex items-center gap-1.5 px-[18px] py-[7px] rounded-full text-xs transition-all"
                 style={{ border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}
               >
@@ -321,8 +324,12 @@ export default function UserProfilePage() {
                   className="flex items-center gap-3 p-4 rounded-[14px] border border-border"
                   style={{ background: "#1a1a1a" }}
                 >
-                  <div className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: "#222" }}>
-                    <ListMusic size={18} style={{ color: "rgba(255,255,255,0.3)" }} />
+                  <div className="w-10 h-10 rounded-[10px] flex-shrink-0 overflow-hidden flex items-center justify-center" style={{ background: "#222" }}>
+                    {pl.cover_art_url ? (
+                      <Image src={pl.cover_art_url} alt={pl.name} width={40} height={40} className="object-cover w-full h-full" />
+                    ) : (
+                      <ListMusic size={18} style={{ color: "rgba(255,255,255,0.3)" }} />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-[13px] font-medium truncate" style={{ color: "rgba(255,255,255,0.9)" }}>{pl.name}</p>

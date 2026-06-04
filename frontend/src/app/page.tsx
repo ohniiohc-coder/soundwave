@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api, Album, Artist } from "@/lib/api";
 import { AlbumCard } from "@/components/AlbumCard";
 import { ArtistCard } from "@/components/ArtistCard";
+import { NowPlayingOrbs } from "@/components/NowPlayingOrbs";
 
 export default function HomePage() {
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -15,6 +16,8 @@ export default function HomePage() {
 
   return (
     <div className="p-8 md:p-10">
+      <NowPlayingOrbs />
+
       {/* 최신 앨범 */}
       <section className="mb-12">
         <p className="text-[10px] tracking-[0.18em] uppercase mb-5" style={{ color: "rgba(255,255,255,0.3)" }}>

@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { PlayerSection } from "@/components/PlayerSection";
 import { ContentArea } from "@/components/ContentArea";
 import { AuthInit } from "@/components/AuthInit";
+import { DMPanel } from "@/components/DMPanel";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const playfair = Playfair_Display({
@@ -25,12 +26,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthInit />
         <div className="flex h-screen flex-col">
           <ContentArea>
-            <Sidebar />
+            <div className="relative flex-shrink-0 hidden md:block" style={{ width: "var(--sidebar-width)" }}>
+              <Sidebar />
+            </div>
             <main className="flex-1 overflow-y-auto bg-bg-base h-full pb-24">
               {children}
             </main>
           </ContentArea>
           <PlayerSection />
+          <DMPanel />
         </div>
       </body>
     </html>

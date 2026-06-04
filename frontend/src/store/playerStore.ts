@@ -9,6 +9,14 @@ export type PlayerTrack = Track & {
 };
 
 export type ContextType = "playlist" | "album" | null;
+export type RepeatMode = "off" | "all" | "one";
+
+function randomExcluding(length: number, exclude: number): number {
+  if (length <= 1) return 0;
+  let idx: number;
+  do { idx = Math.floor(Math.random() * length); } while (idx === exclude);
+  return idx;
+}
 
 type PlayerState = {
   // ── 노래 탭 큐 ──────────────────────────────────────────────────────────
@@ -28,6 +36,8 @@ type PlayerState = {
   duration: number;
   isQueueOpen: boolean;
   contextPlayKey: number;
+  shuffle: boolean;
+  repeat: RepeatMode;
 
   // ── 액션 ────────────────────────────────────────────────────────────────
   setQueue: (tracks: PlayerTrack[], startIndex?: number) => void;
@@ -47,6 +57,8 @@ type PlayerState = {
   setProgress: (p: number) => void;
   setDuration: (d: number) => void;
   toggleQueue: () => void;
+  toggleShuffle: () => void;
+  cycleRepeat: () => void;
 
   reorderContext: (from: number, to: number) => void;
   removeFromContext: (index: number) => void;
@@ -71,6 +83,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   duration: 0,
   isQueueOpen: false,
   contextPlayKey: 0,
+  shuffle: false,
+  repeat: "off",
 
   // 현재 트랙: 컨텍스트 우선
   currentTrack: () => {
@@ -167,12 +181,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   toggle: () => set((s) => ({ isPlaying: !s.isPlaying })),
 
   next: () => {
-    const { contextType, contextTracks, contextIndex, queue, currentIndex } = get();
+    const { contextType, contextTracks, contextIndex, queue, currentIndex, shuffle, repeat } = get();
     if (contextType && contextTracks.length > 0) {
-      set({ contextIndex: (contextIndex + 1) % contextTracks.length, isPlaying: true, progress: 0 });
+      if (shuffle) {
+        set({ contextIndex: randomExcluding(contextTracks.length, contextIndex), isPlaying: true, progress: 0 });
+      } else if (repeat === "off" && contextIndex >= contextTracks.length - 1) {
+        set({ isPlaying: false, progress: 0 });
+      } else {
+        set({ contextIndex: (contextIndex + 1) % contextTracks.length, isPlaying: true, progress: 0 });
+      }
     } else {
       if (!queue.length) return;
-      set({ currentIndex: (currentIndex + 1) % queue.length, isPlaying: true, progress: 0 });
+      if (shuffle) {
+        set({ currentIndex: randomExcluding(queue.length, currentIndex), isPlaying: true, progress: 0 });
+      } else if (repeat === "off" && currentIndex >= queue.length - 1) {
+        set({ isPlaying: false, progress: 0 });
+      } else {
+        set({ currentIndex: (currentIndex + 1) % queue.length, isPlaying: true, progress: 0 });
+      }
     }
   },
 
@@ -191,6 +217,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setProgress: (p) => set({ progress: p }),
   setDuration: (d) => set({ duration: d }),
   toggleQueue: () => set((s) => ({ isQueueOpen: !s.isQueueOpen })),
+  toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
+  cycleRepeat: () => set((s) => ({
+    repeat: s.repeat === "off" ? "all" : s.repeat === "all" ? "one" : "off",
+  })),
 
   removeFromQueue: (index) => {
     const { queue, currentIndex } = get();
