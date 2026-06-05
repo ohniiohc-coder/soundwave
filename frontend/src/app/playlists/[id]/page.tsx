@@ -7,6 +7,7 @@ import { usePlayerStore, PlayerTrack } from "@/store/playerStore";
 import { useAuthStore } from "@/store/authStore";
 import { Play, Pause, Trash2, ListMusic, Check, X, Music2, GripVertical } from "lucide-react";
 import clsx from "clsx";
+import { notFound } from "next/navigation";
 
 function fmt(secs: number | null) {
   if (!secs) return "--:--";
@@ -26,6 +27,7 @@ export default function PlaylistPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuthStore();
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
+  const [isNotFound, setIsNotFound] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const { playContext, addToQueue, currentTrack, isPlaying, play, pause } = usePlayerStore();
@@ -35,7 +37,7 @@ export default function PlaylistPage() {
   useEffect(() => {
     api.getPlaylist(id)
       .then((pl) => { setPlaylist(pl); setName(pl.name); })
-      .catch(console.error);
+      .catch(() => setIsNotFound(true));
   }, [id]);
 
   const handlePlayAll = () => {
@@ -93,6 +95,7 @@ export default function PlaylistPage() {
     setDragOver(null);
   };
 
+  if (isNotFound) notFound();
   if (!playlist) return (
     <div className="flex items-center justify-center h-64 text-muted">로딩 중...</div>
   );
@@ -107,8 +110,12 @@ export default function PlaylistPage() {
           style={{ background: "radial-gradient(circle at 30% 50%, #c9a96e 0%, transparent 70%)" }} />
 
         <div className="relative flex gap-8 items-end">
-          <div className="w-44 h-44 rounded-xl bg-bg-elevated flex items-center justify-center flex-shrink-0 shadow-2xl">
-            <ListMusic size={56} className="text-muted" />
+          <div className="w-44 h-44 rounded-xl bg-bg-elevated flex items-center justify-center flex-shrink-0 shadow-2xl overflow-hidden">
+            {playlist.items[0]?.cover_art_url ? (
+              <Image src={playlist.items[0].cover_art_url} alt={playlist.name} width={176} height={176} className="object-cover w-full h-full" />
+            ) : (
+              <ListMusic size={56} className="text-muted" />
+            )}
           </div>
 
           <div className="flex-1 min-w-0">

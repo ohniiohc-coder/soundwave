@@ -83,6 +83,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), default="user", server_default="user")
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_private: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -91,6 +92,13 @@ class User(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def avatar_url(self) -> str | None:
+        if not self.avatar_key:
+            return None
+        from utils.storage import get_public_url, S3_BUCKET_IMAGES
+        return get_public_url(S3_BUCKET_IMAGES, self.avatar_key)
 
 
 class Follow(Base):

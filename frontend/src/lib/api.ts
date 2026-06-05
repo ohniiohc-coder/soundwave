@@ -56,6 +56,7 @@ export type AuthUser = {
   username: string;
   role: string;
   bio: string | null;
+  avatar_url: string | null;
   is_private: boolean;
   created_at: string;
 };
@@ -64,6 +65,7 @@ export type NowPlayingInfo = {
   track_id: string;
   title: string;
   artist_name: string | null;
+  cover_art_url: string | null;
 };
 
 export type PublicUser = {
@@ -71,6 +73,7 @@ export type PublicUser = {
   display_name: string;
   username: string;
   bio: string | null;
+  avatar_url: string | null;
   is_private: boolean;
   follower_count: number;
   following_count: number;
@@ -117,6 +120,7 @@ export type Playlist = {
   id: string;
   name: string;
   track_count: number;
+  cover_art_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -342,6 +346,16 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ track_id: trackId }),
     }),
+
+  // 아바타
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiFetch<PublicUser>("/api/users/me/avatar", {
+      method: "POST",
+      body: form,
+    });
+  },
 
   // 팔로우 요청 관리 (수신자 기준)
   getFollowRequests: () =>

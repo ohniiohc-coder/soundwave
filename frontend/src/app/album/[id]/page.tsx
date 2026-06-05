@@ -8,19 +8,21 @@ import { PlayerTrack, usePlayerStore } from "@/store/playerStore";
 import { useAuthStore } from "@/store/authStore";
 import Link from "next/link";
 import { Play, Pencil, Check, X, Music2, Trash2 } from "lucide-react";
+import { notFound } from "next/navigation";
 
 export default function AlbumPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuthStore();
   const isAdmin = user?.role === "admin";
   const [album, setAlbum] = useState<AlbumDetail | null>(null);
+  const [isNotFound, setIsNotFound] = useState(false);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({ title: "", release_year: "", genre: "", description: "" });
   const { playContext } = usePlayerStore();
 
   useEffect(() => {
-    api.getAlbum(id).then(setAlbum).catch(console.error);
+    api.getAlbum(id).then(setAlbum).catch(() => setIsNotFound(true));
   }, [id]);
 
   useEffect(() => {
@@ -90,6 +92,7 @@ export default function AlbumPage() {
     e.target.value = "";
   };
 
+  if (isNotFound) notFound();
   if (!album) {
     return <div className="flex items-center justify-center h-64 text-muted">로딩 중...</div>;
   }

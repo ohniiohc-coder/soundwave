@@ -208,7 +208,7 @@ function MessagesInner() {
                     />
                   )}
                 </div>
-                <Link href={`/users/${partnerProfile.id}`} className="hover:underline min-w-0">
+                <Link href={`/users/${partnerProfile.username}`} className="hover:underline min-w-0">
                   <p className="text-[14px] font-medium truncate" style={{ color: "rgba(255,255,255,0.9)" }}>
                     {partnerProfile.display_name}
                   </p>

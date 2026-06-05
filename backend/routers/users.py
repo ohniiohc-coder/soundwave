@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from uuid import UUID
@@ -10,6 +10,7 @@ from database import get_db
 from models import User, Follow, FollowRequest, Playlist, Track
 from schemas import UserPublicOut, PlaylistOut, FollowRequestOut, NowPlayingOut
 from utils.auth import get_current_user, get_current_user_optional
+from utils.storage import get_public_url, upload_file, delete_file, S3_BUCKET_IMAGES
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -56,17 +57,24 @@ async def _build_public(
             select(Track).where(Track.id == user.now_playing_track_id)
         )).scalar_one_or_none()
         if track:
+            cover_art_url = None
+            if track.album and track.album.cover_art_key:
+                cover_art_url = get_public_url(S3_BUCKET_IMAGES, track.album.cover_art_key)
             now_playing = NowPlayingOut(
                 track_id=track.id,
                 title=track.title,
                 artist_name=track.artist.name if track.artist else None,
+                cover_art_url=cover_art_url,
             )
+
+    avatar_url = get_public_url(S3_BUCKET_IMAGES, user.avatar_key) if user.avatar_key else None
 
     return UserPublicOut(
         id=user.id,
         display_name=user.display_name,
         username=user.username,
         bio=user.bio,
+        avatar_url=avatar_url,
         is_private=user.is_private,
         follower_count=follower_count,
         following_count=following_count,
@@ -100,11 +108,11 @@ async def search_users(
 
 @router.get("/{user_id}", response_model=UserPublicOut)
 async def get_user_profile(
-    user_id: UUID,
+    user_id: str,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.username == user_id))).scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
     return await _build_public(user, current_user, db)
@@ -206,6 +214,35 @@ async def get_following(
         select(User).join(Follow, Follow.following_id == User.id).where(Follow.follower_id == user_id)
     )).scalars().all()
     return [await _build_public(u, current_user, db) for u in rows]
+
+
+# ── 아바타 업로드 ────────────────────────────────────────────────────────────
+
+@router.post("/me/avatar", response_model=UserPublicOut)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    content_type = file.content_type or "image/jpeg"
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드할 수 있습니다")
+
+    data = await file.read()
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "jpg"
+    key = f"avatars/{current_user.id}.{ext}"
+
+    if current_user.avatar_key and current_user.avatar_key != key:
+        try:
+            delete_file(current_user.avatar_key, S3_BUCKET_IMAGES)
+        except Exception:
+            pass
+
+    upload_file(data, key, S3_BUCKET_IMAGES, content_type)
+    current_user.avatar_key = key
+    await db.commit()
+
+    return await _build_public(current_user, current_user, db)
 
 
 # ── 지금 듣는 음악 업데이트 ──────────────────────────────────────────────────
@@ -318,13 +355,19 @@ async def get_user_playlists(
         ).order_by(Playlist.created_at.desc())
     )).scalars().all()
 
-    return [
-        PlaylistOut(
+    result = []
+    for pl in playlists:
+        cover_url = None
+        if pl.items:
+            first = pl.items[0]
+            if first.track.album and first.track.album.cover_art_key:
+                cover_url = get_public_url(S3_BUCKET_IMAGES, first.track.album.cover_art_key)
+        result.append(PlaylistOut(
             id=pl.id,
             name=pl.name,
             track_count=len(pl.items),
+            cover_art_url=cover_url,
             created_at=pl.created_at,
             updated_at=pl.updated_at,
-        )
-        for pl in playlists
-    ]
+        ))
+    return result

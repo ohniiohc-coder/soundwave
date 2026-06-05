@@ -29,6 +29,10 @@ def _enrich_track(t: Track) -> TrackOut:
 def _playlist_out(pl: Playlist) -> PlaylistOut:
     out = PlaylistOut.model_validate(pl)
     out.track_count = len(pl.items)
+    if pl.items:
+        first = pl.items[0]
+        if first.track.album and first.track.album.cover_art_key:
+            out.cover_art_url = get_public_url(S3_BUCKET_IMAGES, first.track.album.cover_art_key)
     return out
 
 

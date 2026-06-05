@@ -43,9 +43,9 @@ export function NowPlayingOrbs() {
 
     const FLOAT_AMP = 14;
     const HOVER_SIZE = 120;
-    const CARD_W = 224, CARD_H = 82;
-    const EDGE = 6 + FLOAT_AMP;
     const RMIN = 28, RMAX = 44;
+    const CARD_W = 224, CARD_H = RMAX * 2 + 28;
+    const EDGE = 6 + FLOAT_AMP;
     const INIT_INSET = 80;
     const GAP_ORB = 20 + FLOAT_AMP * 2;
     const PUSH_MARGIN = 16 + FLOAT_AMP;
@@ -169,17 +169,29 @@ export function NowPlayingOrbs() {
 
       const scale = HOVER_SIZE / (o.r * 2);
       const ob = document.createElement("div");
-      ob.style.cssText = `width:100%;height:100%;border-radius:50%;background:${o.color.bg};color:${o.color.fg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;transition:transform .42s cubic-bezier(.34,1.56,.64,1);cursor:pointer;user-select:none;font-family:var(--font-playfair,'Playfair Display',Georgia,serif)`;
-      ob.textContent = o.user.display_name.slice(0, 2).toUpperCase();
+      ob.style.cssText = `width:100%;height:100%;border-radius:50%;background:${o.color.bg};color:${o.color.fg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;transition:transform .42s cubic-bezier(.34,1.56,.64,1);cursor:pointer;user-select:none;font-family:var(--font-playfair,'Playfair Display',Georgia,serif);overflow:hidden`;
+      if (o.user.avatar_url) {
+        const img = document.createElement("img");
+        img.src = o.user.avatar_url;
+        img.alt = o.user.display_name;
+        img.style.cssText = `width:100%;height:100%;object-fit:cover;border-radius:50%`;
+        ob.appendChild(img);
+      } else {
+        ob.textContent = o.user.display_name.slice(0, 2).toUpperCase();
+      }
 
       const np = o.user.now_playing!;
       const card = document.createElement("div");
       const cardSide = o.cardLeft ? "right" : "left";
       const cardOffset = o.r + HOVER_SIZE / 2 + 14;
       const initTx = o.cardLeft ? "-8px" : "8px";
-      card.style.cssText = `position:absolute;top:50%;${cardSide}:${cardOffset}px;width:${CARD_W}px;display:flex;align-items:center;gap:12px;padding:12px 14px;box-sizing:border-box;background:rgba(15,12,28,0.96);border:0.5px solid rgba(255,255,255,0.1);border-radius:14px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s;transform:translate(${initTx},-50%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)`;
+      card.style.cssText = `position:absolute;top:50%;${cardSide}:${cardOffset}px;width:${CARD_W}px;display:flex;align-items:center;gap:12px;padding:10px 14px;box-sizing:border-box;background:rgba(15,12,28,0.96);border:0.5px solid rgba(255,255,255,0.1);border-radius:14px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s;transform:translate(${initTx},-50%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)`;
+      const iconSize = o.r * 2;
+      const albumArtHtml = np.cover_art_url
+        ? `<img src="${escHtml(np.cover_art_url)}" alt="" style="width:${iconSize}px;height:${iconSize}px;flex-shrink:0;border-radius:8px;object-fit:cover">`
+        : `<div style="width:${iconSize}px;height:${iconSize}px;flex-shrink:0;border-radius:8px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-size:${Math.round(iconSize * 0.4)}px">♪</div>`;
       card.innerHTML = `
-        <div style="width:46px;height:46px;flex-shrink:0;border-radius:8px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-size:19px">♪</div>
+        ${albumArtHtml}
         <div style="min-width:0;flex:1;overflow:hidden">
           <p style="font-size:10px;color:rgba(255,255,255,0.35);margin:0 0 3px;letter-spacing:0.1em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(o.user.display_name)}</p>
           <p style="font-size:13px;font-weight:500;color:rgba(255,255,255,0.9);margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(np.title)}</p>

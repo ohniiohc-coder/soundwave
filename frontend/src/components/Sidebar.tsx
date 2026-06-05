@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Home, Disc3, Mic2, Search, Upload, ListMusic, LogIn, LogOut } from "lucide-react";
+import Image from "next/image";
 import clsx from "clsx";
 import { useAuthStore } from "@/store/authStore";
 
@@ -80,7 +81,7 @@ export function Sidebar() {
         </span>
         {/* "hatpl." — expanded 때만 표시 */}
         <span
-          className="leading-none overflow-hidden whitespace-nowrap transition-all duration-200"
+          className="overflow-hidden whitespace-nowrap transition-all duration-200"
           style={{
             fontFamily: PLAYFAIR,
             fontSize: 28,
@@ -137,14 +138,18 @@ export function Sidebar() {
         <div className="mt-2">
           {user ? (
             <button
-              onClick={() => router.push("/profile")}
+              onClick={() => router.push(`/users/${user.username}`)}
               title={!expanded ? user.username : undefined}
               className={btnBase("hover:bg-white/[0.08]")}
             >
-              <div className="w-[26px] h-[26px] rounded-full bg-bg-elevated border border-border flex items-center justify-center flex-shrink-0">
-                <span className="text-[10px] font-semibold text-muted">
-                  {user.display_name.slice(0, 2).toUpperCase()}
-                </span>
+              <div className="w-[26px] h-[26px] rounded-full bg-bg-elevated border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {user.avatar_url ? (
+                  <Image src={user.avatar_url} alt={user.display_name} width={26} height={26} className="object-cover w-full h-full" />
+                ) : (
+                  <span className="text-[10px] font-semibold text-muted">
+                    {user.display_name.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
               </div>
               <span className="text-sm text-muted" style={labelStyle}>{user.username}</span>
             </button>

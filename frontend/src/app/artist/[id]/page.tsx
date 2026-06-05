@@ -6,18 +6,20 @@ import { api, ArtistDetail } from "@/lib/api";
 import { AlbumCard } from "@/components/AlbumCard";
 import { useAuthStore } from "@/store/authStore";
 import { Mic2, Pencil, Check, X, Camera, Trash2 } from "lucide-react";
+import { notFound } from "next/navigation";
 
 export default function ArtistPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuthStore();
   const isAdmin = user?.role === "admin";
   const [artist, setArtist] = useState<ArtistDetail | null>(null);
+  const [isNotFound, setIsNotFound] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "" });
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    api.getArtist(id).then(setArtist).catch(console.error);
+    api.getArtist(id).then(setArtist).catch(() => setIsNotFound(true));
   }, [id]);
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export default function ArtistPage() {
     }
   };
 
+  if (isNotFound) notFound();
   if (!artist) {
     return <div className="flex items-center justify-center h-64 text-muted">로딩 중...</div>;
   }

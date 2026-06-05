@@ -38,7 +38,7 @@ function UserCard({
 
   return (
     <Link
-      href={`/users/${user.id}`}
+      href={`/users/${user.username}`}
       className="flex items-center gap-4 p-4 rounded-[14px] border border-border transition-all group"
       style={{ background: "#111" }}
       onMouseEnter={(e) => {

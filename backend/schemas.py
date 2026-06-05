@@ -138,6 +138,7 @@ class PlaylistOut(BaseModel):
     id: UUID
     name: str
     track_count: int = 0
+    cover_art_url: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -184,6 +185,7 @@ class UserOut(BaseModel):
     username: str
     role: str
     bio: str | None = None
+    avatar_url: str | None = None
     is_private: bool = False
     created_at: datetime
 
@@ -192,6 +194,7 @@ class NowPlayingOut(BaseModel):
     track_id: UUID
     title: str
     artist_name: str | None = None
+    cover_art_url: str | None = None
 
 
 class UserPublicOut(BaseModel):
@@ -199,6 +202,7 @@ class UserPublicOut(BaseModel):
     display_name: str
     username: str
     bio: str | None = None
+    avatar_url: str | None = None
     is_private: bool = False
     follower_count: int = 0
     following_count: int = 0

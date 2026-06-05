@@ -1,12 +1,12 @@
 # whatpl — 음악 스트리밍 서비스
 
-Spotify 스타일 개인 음악 스트리밍 서비스. 음원 업로드 → Airflow 메타데이터 파이프라인 → 스트리밍 재생 + 소셜 기능(팔로우·DM·프로필).
+Spotify 스타일 개인 음악 스트리밍 서비스. 음원 업로드 → Airflow 메타데이터 파이프라인 → 스트리밍 재생 + 소셜 기능(팔로우·DM·프로필·아바타).
 
 ## 기술 스택
 
 | 영역 | 기술 |
 |------|------|
-| Frontend | Next.js 14 (App Router), Tailwind CSS, Zustand |
+| Frontend | Next.js 14 (App Router), Tailwind CSS, Zustand, react-easy-crop |
 | Backend | Python FastAPI, SQLAlchemy (async), mutagen |
 | 인증 | JWT (python-jose), bcrypt |
 | DB | PostgreSQL 15 |
@@ -30,14 +30,12 @@ cp .env.example .env
 | 변수 | 설명 |
 |------|------|
 | `JWT_SECRET_KEY` | JWT 서명 키. 프로덕션에서 반드시 변경 |
-| `ADMIN_API_KEY` | 음악 업로드·편집·삭제 시 필요한 어드민 키 |
 | `POSTGRES_*` | DB 접속 정보 |
 | `S3_*` / `MINIO_*` | 스토리지 접속 정보 |
 
 ### 2. 전체 스택 실행
 
 ```bash
-cd C:\Users\soldesk\Desktop\new_prj
 docker compose up -d
 ```
 
@@ -80,17 +78,18 @@ docker compose restart backend
 │       │   ├── artist/[id]/          # 아티스트 상세
 │       │   ├── playlists/            # 플레이리스트 목록
 │       │   ├── playlists/[id]/       # 플레이리스트 상세
-│       │   ├── profile/              # 내 프로필 (편집·비공개 설정·팔로우 요청 관리)
-│       │   ├── users/[id]/           # 타 유저 프로필 (팔로우·DM 버튼)
+│       │   ├── settings/             # 프로필 편집 (아바타·표시명·바이오·비공개 설정)
+│       │   ├── users/[username]/     # 유저 프로필 (팔로우·DM 버튼, 팔로우 요청 관리)
 │       │   ├── upload/               # 음악 업로드 (어드민)
 │       │   ├── login/
 │       │   └── register/             # 실시간 아이디 중복 검사 포함
 │       ├── components/
-│       │   ├── Sidebar.tsx           # 내비게이션 사이드바 (hover 확장)
+│       │   ├── Sidebar.tsx           # 내비게이션 사이드바 (hover 확장, 아바타 표시)
 │       │   ├── Player.tsx            # 하단 플로팅 pill 플레이어
 │       │   ├── QueuePanel.tsx        # 재생 대기열 패널 (플레이어 위 팝업)
 │       │   ├── DMPanel.tsx           # DM 플로팅 패널 (inbox·새 메시지·채팅)
-│       │   ├── NowPlayingOrbs.tsx    # 홈 — 팔로잉 유저 현재 재생 중 표시
+│       │   ├── NowPlayingOrbs.tsx    # 홈 — 팔로잉 유저 현재 재생 중 floating orb
+│       │   ├── AvatarCropModal.tsx   # 프로필 사진 원형 크롭 모달 (react-easy-crop)
 │       │   ├── PlayerSection.tsx
 │       │   ├── ContentArea.tsx
 │       │   ├── AuthInit.tsx
@@ -111,7 +110,7 @@ docker compose restart backend
 │   ├── schemas.py                    # Pydantic 스키마
 │   ├── routers/
 │   │   ├── auth.py                   # 회원가입·로그인·프로필 수정·아이디 중복 확인
-│   │   ├── users.py                  # 유저 검색·공개 프로필·팔로우·팔로우 요청 관리
+│   │   ├── users.py                  # 유저 검색·공개 프로필·팔로우·아바타 업로드
 │   │   ├── messages.py               # DM (대화 목록·스레드·전송·읽음 처리)
 │   │   ├── tracks.py
 │   │   ├── albums.py
@@ -143,12 +142,13 @@ docker compose restart backend
 - **토큰 검증**: 앱 시작 시 `GET /api/auth/me`로 자동 검증 (만료 시 자동 로그아웃)
 
 ### 소셜
-- **프로필**: 표시명·바이오 편집, 비공개 계정 전환
+- **프로필 편집** (`/settings`): 표시명·바이오 편집, 비공개 계정 전환, 프로필 사진 업로드
+- **프로필 사진**: 원형 크롭 모달 → 400×400 JPEG 변환 → S3/MinIO 저장. 사이드바 아이콘 및 지금 듣는 중 orb에 반영
 - **비공개 계정**: 팔로우 시 승인 요청 발송 → 계정 소유자가 수락/거절
 - **팔로우/언팔로우**: 공개 계정은 즉시, 비공개 계정은 요청 후 승인 시 성립
 - **통합 검색** (`/browse`): 트랙·앨범·아티스트·사람을 탭으로 구분해 한 화면에서 검색
 - **DM 플로팅 패널**: 화면 우하단 버튼으로 열리는 오버레이 패널 (inbox·새 메시지·채팅). 페이지 이동 없이 어디서든 접근 가능
-- **지금 듣는 중**: 홈 화면 상단에 팔로잉 유저가 현재 재생 중인 곡을 floating orb 형태로 표시. hover 시 곡 정보 카드 표시, 15초 폴링
+- **지금 듣는 중**: 홈 화면 상단에 팔로잉 유저가 현재 재생 중인 곡을 floating orb로 표시. hover 시 앨범 아트 + 곡 정보 카드, 15초 폴링
 
 ### 음악 관리
 - **자동 메타데이터 추출**: MP3/FLAC/M4A 태그 자동 파싱 (트랙명·아티스트·앨범·연도·장르)
@@ -173,12 +173,12 @@ docker compose restart backend
 
 ## 어드민 기능
 
-업로드·편집·삭제는 `admin` 역할 계정 또는 `ADMIN_API_KEY`가 필요합니다.
+업로드·편집·삭제는 `admin` 역할 계정이 필요합니다.
 
 ```bash
-# curl 업로드 예시
+# curl 업로드 예시 (admin JWT)
 curl -X POST http://localhost:8000/api/upload \
-  -H "x-api-key: YOUR_ADMIN_API_KEY" \
+  -H "Authorization: Bearer YOUR_ADMIN_JWT" \
   -F "file=@/path/to/song.mp3"
 ```
 
@@ -199,7 +199,9 @@ curl -X POST http://localhost:8000/api/upload \
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | `GET` | `/api/users?q=` | 유저 검색 (관리자 제외) |
-| `GET` | `/api/users/{id}` | 공개 프로필 조회 |
+| `GET` | `/api/users/{username}` | 공개 프로필 조회 (username 기반) |
+| `POST` | `/api/users/me/avatar` | 프로필 사진 업로드 (multipart/form-data) |
+| `PUT` | `/api/users/me/now-playing` | 현재 재생 중 곡 업데이트 |
 | `POST` | `/api/users/{id}/follow` | 팔로우 (비공개 시 요청 발송) |
 | `DELETE` | `/api/users/{id}/follow` | 언팔로우 또는 요청 취소 |
 | `GET` | `/api/users/{id}/followers` | 팔로워 목록 |
@@ -253,7 +255,7 @@ curl -X POST http://localhost:8000/api/upload \
 | `DELETE` | `/api/playlists/{id}` | 삭제 |
 | `POST` | `/api/playlists/{id}/tracks` | 트랙 추가 |
 | `PUT` | `/api/playlists/{id}/tracks/reorder` | 순서 변경 |
-| `DELETE` | `/api/playlists/{id}/tracks/{track_id}` | 트랙 제거 |
+| `DELETE` | `/api/playlists/{id}/items/{item_id}` | 트랙 제거 |
 
 ### 재생 대기열 · 최근 재생 (JWT 필수)
 | 메서드 | 경로 | 설명 |
@@ -263,7 +265,7 @@ curl -X POST http://localhost:8000/api/upload \
 | `GET` | `/api/recent-contexts` | 최근 재생 최대 5개 |
 | `POST` | `/api/recent-contexts` | 최근 재생 upsert |
 
-### 검색
+### 검색 · 업로드
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | `GET` | `/api/search?q=` | 트랙·앨범·아티스트 통합 검색 |
@@ -299,8 +301,7 @@ kubectl create secret generic whatpl-secrets \
   --from-literal=DATABASE_URL="postgresql+asyncpg://user:pass@RDS_ENDPOINT:5432/whatpldb" \
   --from-literal=JWT_SECRET_KEY="your-secure-random-key" \
   --from-literal=S3_ACCESS_KEY="AWS_ACCESS_KEY" \
-  --from-literal=S3_SECRET_KEY="AWS_SECRET_KEY" \
-  --from-literal=ADMIN_API_KEY="your-secure-admin-key"
+  --from-literal=S3_SECRET_KEY="AWS_SECRET_KEY"
 
 # 5. 배포
 kubectl apply -f k8s/namespace.yaml

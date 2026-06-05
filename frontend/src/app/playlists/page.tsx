@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, Playlist } from "@/lib/api";
 import { ListMusic, Plus } from "lucide-react";
+import Image from "next/image";
 import { useAuthStore } from "@/store/authStore";
 
 export default function PlaylistsPage() {
@@ -69,8 +70,12 @@ export default function PlaylistsPage() {
               onClick={() => router.push(`/playlists/${pl.id}`)}
               className="flex flex-col gap-3 p-3 rounded-xl bg-bg-panel hover:bg-bg-elevated transition-colors text-left"
             >
-              <div className="aspect-square rounded-lg bg-bg-elevated flex items-center justify-center">
-                <ListMusic size={36} className="text-muted" />
+              <div className="aspect-square rounded-lg bg-bg-elevated flex items-center justify-center overflow-hidden">
+                {pl.cover_art_url ? (
+                  <Image src={pl.cover_art_url} alt={pl.name} width={200} height={200} className="object-cover w-full h-full" />
+                ) : (
+                  <ListMusic size={36} className="text-muted" />
+                )}
               </div>
               <div>
                 <p className="text-sm font-medium truncate">{pl.name}</p>

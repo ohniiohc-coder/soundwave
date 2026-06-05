@@ -103,6 +103,13 @@ async def migrate_presence():
         ))
 
 
+async def migrate_avatar():
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_key VARCHAR(500)"
+        ))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -110,6 +117,7 @@ async def lifespan(app: FastAPI):
     await migrate_user_bio()
     await migrate_user_scoped_data()
     await migrate_presence()
+    await migrate_avatar()
     yield
 
 
